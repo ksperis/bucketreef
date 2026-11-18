@@ -116,6 +116,7 @@
 .ui-dashboard-activity-row > :first-child { flex: 1 1 180px; min-width: 0; }
 .ui-dashboard-text-link { font-size: 12px; line-height: 18px; font-weight: 400; display: inline-flex; min-height: 28px; align-items: center; border-radius: 6px; }
 .ui-dashboard-quota-row { display: grid; grid-template-columns: minmax(76px, 1fr) minmax(0, 1.2fr) 52px 76px; align-items: center; gap: 8px; }
+.ui-dashboard-quota-numbers { display: flex; min-width: 0; flex-wrap: wrap; align-items: baseline; column-gap: 0; }
 .ui-dashboard-quota-value { font-size: 11px; line-height: 16px; }
 .ui-dashboard-health-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; border-top: 1px solid var(--ui-border-soft); padding: 6px 0; }
 .ui-dashboard-health-row > :first-child { flex: 1 1 200px; min-width: 0; }
@@ -135,5 +136,16 @@
   .ui-dashboard-link-row, .ui-dashboard-row-link, .ui-dashboard-text-link { min-height: 44px; min-width: 44px; }
 }
 @media (max-width: 639px) {
-  .ui-dashboard-quota-row { grid-template-columns: minmax(76px, 1fr) minmax(0, 1.2fr) 44px 44px; gap: 6px; }
+  .ui-dashboard-quota-row {
+    grid-template-columns: minmax(0, 1fr) 44px 44px;
+    grid-template-areas:
+      "label percent action"
+      "usage usage usage";
+    column-gap: 6px;
+    row-gap: 2px;
+  }
+  .ui-dashboard-quota-label { grid-area: label; }
+  .ui-dashboard-quota-usage { grid-area: usage; min-width: 0; }
+  .ui-dashboard-quota-percent { grid-area: percent; }
+  .ui-dashboard-quota-action { grid-area: action; }
 }

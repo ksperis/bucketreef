@@ -175,6 +175,103 @@ for (const surface of surfaces) {
   }
 }
 
+for (const language of ["en", "fr", "de"] as const) {
+  test(`Dashboard presentation manager localized quota mobile ${language}`, async ({ browser }, testInfo) => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      hasTouch: true,
+      timezoneId: "Europe/Paris",
+      locale: "en-US",
+    });
+    try {
+      const page = await context.newPage();
+      const errors: string[] = [];
+      page.on("pageerror", (error) => errors.push(error.message));
+      const scenario = scenarios.find((candidate) => candidate.id === "workspace-manager")!;
+      const rules = scenario.mockRules.map((rule) => {
+        if (rule.id !== "manager-context") return rule;
+        return {
+          ...rule,
+          body: (requestContext: {
+            url: URL;
+            method: string;
+            requestBodyText: string;
+            state: Map<string, unknown>;
+          }) => {
+            const body = typeof rule.body === "function" ? rule.body(requestContext) : rule.body;
+            return {
+              ...(body as Record<string, unknown>),
+              quota_max_objects: 1_000_000,
+              max_buckets: 1_000,
+              max_users: 1_000_000,
+              max_roles: 1_000,
+              max_groups: 1_000,
+            };
+          },
+        };
+      });
+      const registry = await registerApiMocks(page, rules, testInfo.title, { ...scenario.user!, ui_language: language });
+      await seedUiPreferences(page, { ...scenario.storage, theme: "light" });
+      await page.goto("/manager");
+      await expect(page.locator("main h1")).toBeVisible();
+      await expect(page.locator("[data-quota-status-row]")).toHaveCount(6);
+
+      const locale = language === "fr" ? "fr-FR" : language === "de" ? "de-DE" : "en-US";
+      const number = new Intl.NumberFormat(locale);
+      const quotaOfLabel = language === "fr" ? "sur" : language === "de" ? "von" : "of";
+      const objectUnit = language === "fr" ? "objets" : language === "de" ? "Objekte" : "objects";
+      const bucketUnit = language === "de" ? "Buckets" : "buckets";
+      const kpiCards = page.locator("[data-workspace-dashboard-kpi-row=true] [data-kpi-card]");
+      await expect(kpiCards.nth(1)).toContainText(`${quotaOfLabel} ${number.format(1_000_000)} ${objectUnit}`);
+      await expect(kpiCards.nth(2)).toContainText(`${quotaOfLabel} ${number.format(1_000)} ${bucketUnit}`);
+      const quotaValues = await page.locator("[data-quota-status-row] .ui-dashboard-quota-numbers").allTextContents();
+      expect(quotaValues.slice(1)).toEqual([
+        `${number.format(1_722)} / ${number.format(1_000_000)}`,
+        `${number.format(3)} / ${number.format(1_000)}`,
+        `${number.format(2)} / ${number.format(1_000_000)}`,
+        `${number.format(2)} / ${number.format(1_000)}`,
+        `${number.format(2)} / ${number.format(1_000)}`,
+      ]);
+
+      const mobileGeometry = await page.locator("[data-quota-status-row]").evaluateAll((rows) => rows.map((row) => {
+        const grid = row.querySelector<HTMLElement>(".ui-dashboard-quota-row")!;
+        const label = row.querySelector<HTMLElement>(".ui-dashboard-quota-label")!;
+        const usage = row.querySelector<HTMLElement>(".ui-dashboard-quota-usage")!;
+        const percent = row.querySelector<HTMLElement>(".ui-dashboard-quota-percent")!;
+        const meter = usage.querySelector<HTMLElement>("[role=meter]")!;
+        const gridRect = grid.getBoundingClientRect();
+        const usageRect = usage.getBoundingClientRect();
+        const labelRect = label.getBoundingClientRect();
+        const percentRect = percent.getBoundingClientRect();
+        const meterRect = meter.getBoundingClientRect();
+        const numberSpans = Array.from(usage.querySelectorAll<HTMLElement>(".ui-dashboard-quota-numbers > span"));
+        return {
+          sameTopRow: Math.abs(
+            (labelRect.top + labelRect.height / 2) - (percentRect.top + percentRect.height / 2),
+          ) <= 1,
+          usageBelowLabel: usageRect.top >= labelRect.bottom,
+          usageFullWidth: Math.abs(usageRect.left - gridRect.left) <= 1 && Math.abs(usageRect.right - gridRect.right) <= 1,
+          meterFullWidth: Math.abs(meterRect.left - usageRect.left) <= 1 && Math.abs(meterRect.right - usageRect.right) <= 1,
+          numbersInside: numberSpans.every((span) => span.getBoundingClientRect().right <= gridRect.right + 1),
+        };
+      }));
+      for (const row of mobileGeometry) {
+        expect(row.sameTopRow).toBe(true);
+        expect(row.usageBelowLabel).toBe(true);
+        expect(row.usageFullWidth).toBe(true);
+        expect(row.meterFullWidth).toBe(true);
+        expect(row.numbersInside).toBe(true);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)).toBe(true);
+      await geometry(page, true);
+      registry.assertNoUnmatched();
+      expect(errors).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+}
+
 type DashboardState = "empty" | "unavailable" | "loading" | "without-data-types" | "onboarding";
 
 function stateRules(rules: MockRule[], state: DashboardState): MockRule[] {

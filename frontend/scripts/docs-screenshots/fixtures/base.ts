@@ -257,6 +257,8 @@ const EXECUTION_CONTEXTS = [
     endpoint_name: "Default",
     endpoint_provider: "ceph",
     endpoint_url: "https://s3-default.docs.example.com",
+    destination_switching_allowed: false,
+    execution_destinations: [],
     storage_endpoint_capabilities: {
       iam: true,
       sns: true,
@@ -285,6 +287,8 @@ const EXECUTION_CONTEXTS = [
     endpoint_is_default: true,
     endpoint_provider: "ceph",
     endpoint_url: "https://s3-default.docs.example.com",
+    destination_switching_allowed: false,
+    execution_destinations: [],
     storage_endpoint_capabilities: {
       iam: true,
       sns: true,
@@ -309,6 +313,8 @@ const EXECUTION_CONTEXTS = [
     endpoint_name: "Archive",
     endpoint_provider: "other",
     endpoint_url: "https://s3-archive.docs.example.com",
+    destination_switching_allowed: false,
+    execution_destinations: [],
     storage_endpoint_capabilities: {
       iam: false,
       sns: true,
@@ -339,6 +345,8 @@ const PORTAL_BROWSER_EXECUTION_CONTEXT = {
   endpoint_name: "Default",
   endpoint_provider: "ceph",
   endpoint_url: "https://s3-default.docs.example.com",
+  destination_switching_allowed: false,
+  execution_destinations: [],
   storage_endpoint_capabilities: {
     iam: true,
     sns: true,

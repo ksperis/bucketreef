@@ -38,7 +38,7 @@ import {
   uiMutedTextClass,
 } from "../../components/ui/styles";
 import { formatLocalDateTime } from "../../utils/dateTime";
-import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../../utils/format";
+import { formatBytes, formatNumber, formatPercentage, formatSpacedCompactNumber } from "../../utils/format";
 import { clampedPercentageOf } from "../../utils/numbers";
 import {
   BellIcon,
@@ -310,7 +310,8 @@ function QuotaStatusCard({
   bucketUnavailableReason?: string | null;
   iamUnavailableReason?: string | null;
 }) {
-  const { text } = useManagerI18n();
+  const { text, intlLocale } = useManagerI18n();
+  const formatExactCount = (value: number) => formatNumber(value, intlLocale);
   const visibleStorageUsed = unavailableReason ? null : storageUsed;
   const visibleStorageQuota = unavailableReason ? null : storageQuota;
   const visibleObjectCount = unavailableReason ? null : objectCount;
@@ -339,14 +340,14 @@ function QuotaStatusCard({
     },
     {
       label: text("Objects"),
-      value: formatManagerDashboardQuotaValue(visibleObjectCount, visibleObjectQuota, formatSpacedCompactNumber),
+      value: formatManagerDashboardQuotaValue(visibleObjectCount, visibleObjectQuota, formatExactCount),
       percent: objectPercent,
       tone: "violet" as DashboardTone,
       icon: <FileIcon className="h-3.5 w-3.5" />,
     },
     {
       label: text("Buckets"),
-      value: formatManagerDashboardQuotaValue(visibleBucketCount, visibleBucketQuota, formatSpacedCompactNumber),
+      value: formatManagerDashboardQuotaValue(visibleBucketCount, visibleBucketQuota, formatExactCount),
       percent: bucketStatusPercent,
       to: "/manager/buckets",
       tone: "emerald" as DashboardTone,
@@ -354,7 +355,7 @@ function QuotaStatusCard({
     },
     {
       label: text("Users"),
-      value: formatManagerDashboardQuotaValue(visibleUserCount, visibleUserQuota, formatSpacedCompactNumber),
+      value: formatManagerDashboardQuotaValue(visibleUserCount, visibleUserQuota, formatExactCount),
       percent: userPercent,
       to: "/manager/users",
       tone: "blue" as DashboardTone,
@@ -362,7 +363,7 @@ function QuotaStatusCard({
     },
     {
       label: text("Roles"),
-      value: formatManagerDashboardQuotaValue(visibleRoleCount, visibleRoleQuota, formatSpacedCompactNumber),
+      value: formatManagerDashboardQuotaValue(visibleRoleCount, visibleRoleQuota, formatExactCount),
       percent: rolePercent,
       to: "/manager/roles",
       tone: "amber" as DashboardTone,
@@ -370,7 +371,7 @@ function QuotaStatusCard({
     },
     {
       label: text("Groups"),
-      value: formatManagerDashboardQuotaValue(visibleGroupCount, visibleGroupQuota, formatSpacedCompactNumber),
+      value: formatManagerDashboardQuotaValue(visibleGroupCount, visibleGroupQuota, formatExactCount),
       percent: groupPercent,
       to: "/manager/groups",
       tone: "emerald" as DashboardTone,
@@ -384,17 +385,17 @@ function QuotaStatusCard({
         {rows.map((row) => (
           <div key={row.label} className="relative" data-quota-status-row={row.label}>
             <div className="ui-dashboard-quota-row">
-              <div className="flex min-w-0 items-center gap-2">
+              <div className="ui-dashboard-quota-label flex min-w-0 items-center gap-2">
                 <IconBubble tone={row.tone} className="h-6 w-6 rounded-md">
                   {row.icon}
                 </IconBubble>
                 <span className="ui-dashboard-label">{row.label}</span>
               </div>
-              <div>
-                <p className="ui-dashboard-label">
-                  <span className="font-semibold text-[var(--ui-text)]">{row.value.current}</span>
+              <div className="ui-dashboard-quota-usage">
+                <p className="ui-dashboard-quota-numbers ui-dashboard-label">
+                  <span className="whitespace-nowrap font-semibold text-[var(--ui-text)]">{row.value.current}</span>
                   {row.value.quota && (
-                    <span className={cx(uiMutedTextClass, "ui-dashboard-quota-value")}> / {row.value.quota}</span>
+                    <span className={cx(uiMutedTextClass, "ui-dashboard-quota-value whitespace-nowrap")}> / {row.value.quota}</span>
                   )}
                 </p>
                 {row.percent != null && (
@@ -405,20 +406,20 @@ function QuotaStatusCard({
                   />
                 )}
               </div>
-              <span className="text-right ui-dashboard-label">
+              <span className="ui-dashboard-quota-percent text-right ui-dashboard-label">
                 {row.percent == null ? "" : formatPercentage(row.percent)}
               </span>
               {row.to ? (
                 <Link
                   to={row.to}
                   aria-label={text("View all {label}", { label: row.label })}
-                  className="ui-dashboard-text-link justify-end gap-1 text-primary"
+                  className="ui-dashboard-quota-action ui-dashboard-text-link justify-end gap-1 text-primary"
                 >
                   <span className="hidden sm:inline">{text("View all")}</span>
                   <OpenIcon className="h-3.5 w-3.5" />
                 </Link>
               ) : (
-                <span aria-hidden="true" />
+                <span className="ui-dashboard-quota-action" aria-hidden="true" />
               )}
             </div>
           </div>
@@ -674,6 +675,7 @@ export default function ManagerDashboard() {
     ? null
     : { ...trafficTrend, label: text(trafficTrend.label) };
   const metrics = buildWorkspaceDashboardKpis({
+    locale: intlLocale,
     storage: {
       label: text("Storage used"),
       usedBytes: storageUsedBytes,

@@ -71,6 +71,7 @@ type WorkspaceKpiTransferConfig = WorkspaceKpiEndpoint & {
 };
 
 type BuildWorkspaceDashboardKpisConfig = {
+  locale?: string;
   storage: WorkspaceKpiStorageConfig;
   spaces: WorkspaceKpiCountConfig;
   objects: WorkspaceKpiCountConfig;
@@ -83,18 +84,6 @@ export function formatWorkspaceOptionalBytes(value?: number | null): string {
 
 function formatWorkspaceQuotaDetail(quota: string, usagePercent?: number | null, ofLabel = "of"): string {
   return usagePercent == null ? `${ofLabel} ${quota}` : `${ofLabel} ${quota} (${formatPercentage(usagePercent)})`;
-}
-
-function formatWorkspaceCountQuotaDetail(
-  value: number | null | undefined,
-  quota: number,
-  unitLabel: string,
-  usagePercent?: number | null,
-  ofLabel = "of"
-): string {
-  if (value == null) return formatWorkspaceQuotaDetail(`${formatNumber(quota)} ${unitLabel}`, usagePercent, ofLabel);
-  const detail = `${formatNumber(value)} / ${formatNumber(quota)} ${unitLabel}`;
-  return usagePercent == null ? detail : `${detail} (${formatPercentage(usagePercent)})`;
 }
 
 export function workspaceTrafficTotalBytes(stats?: ManagerTrafficStats | null): number {
@@ -221,24 +210,24 @@ function formatWorkspaceCountTrend(
   return formatWorkspaceSignedTrend(currentValue, baselineValue, baseline?.label ?? "", formatSpacedCompactNumber, comparisonLabel);
 }
 
-function formatCountValue(value: number | null | undefined): string {
-  return value == null ? "" : value.toLocaleString();
+function formatCountValue(value: number | null | undefined, locale?: string): string {
+  return value == null ? "" : formatNumber(value, locale);
 }
 
-function buildCountMetric(config: WorkspaceKpiCountConfig): WorkspaceDashboardMetric {
+function buildCountMetric(config: WorkspaceKpiCountConfig, locale?: string): WorkspaceDashboardMetric {
   const progress = clampedPercentageOf(config.value, config.quota);
   const detail =
     config.quota != null
-      ? formatWorkspaceCountQuotaDetail(config.value, config.quota, config.unitLabel, progress, config.quotaOfLabel)
+      ? formatWorkspaceQuotaDetail(`${formatNumber(config.quota, locale)} ${config.unitLabel}`, progress, config.quotaOfLabel)
       : config.activeValue != null && config.activeLabel
-        ? `${config.activeValue.toLocaleString()} ${config.activeLabel}`
+        ? `${formatNumber(config.activeValue, locale)} ${config.activeLabel}`
         : config.value == null
           ? ""
           : config.knownDetail ?? config.unitLabel;
 
   return {
     label: config.label,
-    value: formatCountValue(config.value),
+    value: formatCountValue(config.value, locale),
     detail,
     progress,
     progressLabel: config.progressLabel,
@@ -284,8 +273,8 @@ export function buildWorkspaceDashboardKpis(config: BuildWorkspaceDashboardKpisC
 
   return [
     storageMetric,
-    buildCountMetric(config.objects),
-    buildCountMetric(config.spaces),
+    buildCountMetric(config.objects, config.locale),
+    buildCountMetric(config.spaces, config.locale),
     transferMetric,
   ];
 }

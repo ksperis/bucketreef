@@ -299,7 +299,7 @@ describe("PortalDashboard storage workspace UX", () => {
     expect(kpiValue("Collaborators")).toBe("3");
     expect(within(collaboratorsCard as HTMLElement).getByText("2 active external tool accesses")).toBeInTheDocument();
     expect(within(collaboratorsCard as HTMLElement).getByText(trendText("1 vs last 30 days"))).toBeInTheDocument();
-    expect(screen.getByText("1 / 4 spaces (25%)")).toBeInTheDocument();
+    expect(screen.getByText("of 4 spaces (25%)")).toBeInTheDocument();
     expect(screen.getByRole("meter", { name: "Storage spaces quota usage" })).toHaveAttribute("aria-valuenow", "25");
     expect(screen.getByText("Last 24h")).toBeInTheDocument();
     expect(screen.queryByText("Last 7 days")).not.toBeInTheDocument();
@@ -387,7 +387,7 @@ describe("PortalDashboard storage workspace UX", () => {
     );
 
     expect(screen.getByRole("link", { name: /Storage used/ })).toHaveAttribute("href", "/portal/usage");
-    expect(screen.getByRole("link", { name: /Storage spaces 1 1 \/ 4 spaces/ })).toHaveAttribute("href", "/portal/storage-spaces");
+    expect(screen.getByRole("link", { name: /Storage spaces 1 of 4 spaces/ })).toHaveAttribute("href", "/portal/storage-spaces");
     expect(screen.getByRole("link", { name: /Files/ })).toHaveAttribute("href", "/portal/usage");
     expect(screen.getByRole("link", { name: /^Transfer\s+384 B/ })).toHaveAttribute("href", "/portal/usage");
     expect(screen.getByRole("link", { name: /Collaborators\s+3/i })).toHaveAttribute("href", "/portal/shares");

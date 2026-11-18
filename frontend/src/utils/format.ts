@@ -32,9 +32,9 @@ export function formatBytesAxis(value: number): string {
   return `${size.toFixed(decimals)} ${units[idx]}`;
 }
 
-export function formatNumber(value?: number | null): string {
+export function formatNumber(value?: number | null, locale?: string): string {
   if (value === undefined || value === null) return "-";
-  return value.toLocaleString();
+  return value.toLocaleString(locale);
 }
 
 export function formatCompactNumber(value?: number | null): string {

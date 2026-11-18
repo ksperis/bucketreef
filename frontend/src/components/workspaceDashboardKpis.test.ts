@@ -47,6 +47,7 @@ describe("workspaceDashboardKpis", () => {
     });
 
     const metrics = buildWorkspaceDashboardKpis({
+      locale: "en-US",
       storage: {
         usedBytes: 512,
         quotaBytes: 1024,
@@ -89,7 +90,7 @@ describe("workspaceDashboardKpis", () => {
     expect(metrics.map((metric) => metric.label)).toEqual(["Storage used", "Objects", "Storage spaces", "Transfer"]);
     expect(metrics[0].trend?.label).toBe("256 B vs last 30 days");
     expect(metrics[1].trend?.label).toBe("4 vs last 30 days");
-    expect(metrics[2].detail).toBe("1 / 4 spaces (25%)");
+    expect(metrics[2].detail).toBe("of 4 spaces (25%)");
     expect(metrics[2].progress).toBe(25);
     expect(metrics[2].progressLabel).toBe("Storage spaces quota usage");
     expect(metrics[2].trend?.label).toBe("1 vs last 30 days");
@@ -116,6 +117,7 @@ describe("workspaceDashboardKpis", () => {
 
   it("keeps count quotas exact instead of abbreviating their limits", () => {
     const metrics = buildWorkspaceDashboardKpis({
+      locale: "en-US",
       storage: {
         usedBytes: null,
         quotaBytes: null,
@@ -124,7 +126,7 @@ describe("workspaceDashboardKpis", () => {
       },
       spaces: {
         label: "Storage spaces",
-        value: 1,
+        value: 3,
         quota: 1_000,
         unitLabel: "spaces",
         progressLabel: "Storage spaces quota usage",
@@ -133,8 +135,8 @@ describe("workspaceDashboardKpis", () => {
       },
       objects: {
         label: "Objects",
-        value: 1_234,
-        quota: 100_000,
+        value: 405,
+        quota: 1_000_000,
         unitLabel: "objects",
         progressLabel: "Object quota usage",
         tone: "violet",
@@ -146,8 +148,87 @@ describe("workspaceDashboardKpis", () => {
       },
     });
 
-    expect(metrics[1].detail).toBe("1,234 / 100,000 objects (1.2%)");
-    expect(metrics[2].detail).toBe("1 / 1,000 spaces (0.1%)");
+    expect(metrics[1].value).toBe("405");
+    expect(metrics[1].detail).toBe("of 1,000,000 objects (0.0%)");
+    expect(metrics[2].value).toBe("3");
+    expect(metrics[2].detail).toBe("of 1,000 spaces (0.3%)");
+  });
+
+  it("formats exact KPI counts with the UI locale", () => {
+    const metrics = buildWorkspaceDashboardKpis({
+      locale: "de-DE",
+      storage: {
+        usedBytes: null,
+        quotaBytes: null,
+        progressLabel: "Storage quota usage",
+        icon: "storage",
+      },
+      spaces: {
+        label: "Storage spaces",
+        value: 1_234,
+        quota: 10_000,
+        unitLabel: "spaces",
+        quotaOfLabel: "von",
+        tone: "emerald",
+        icon: "spaces",
+      },
+      objects: {
+        label: "Objects",
+        value: 12_345,
+        quota: 1_000_000,
+        unitLabel: "objects",
+        quotaOfLabel: "von",
+        tone: "violet",
+        icon: "objects",
+      },
+      transfer: {
+        bytes: null,
+        icon: "transfer",
+      },
+    });
+
+    expect(metrics[1].value).toBe("12.345");
+    expect(metrics[1].detail).toBe("von 1.000.000 objects (1.2%)");
+    expect(metrics[2].value).toBe("1.234");
+    expect(metrics[2].detail).toBe("von 10.000 spaces (12%)");
+  });
+
+  it("uses the localized quota relation and separators for French KPI details", () => {
+    const metrics = buildWorkspaceDashboardKpis({
+      locale: "fr-FR",
+      storage: {
+        usedBytes: null,
+        quotaBytes: null,
+        progressLabel: "Storage quota usage",
+        icon: "storage",
+      },
+      spaces: {
+        label: "Espaces de stockage",
+        value: 3,
+        quota: 1_000,
+        unitLabel: "espaces",
+        quotaOfLabel: "sur",
+        tone: "emerald",
+        icon: "spaces",
+      },
+      objects: {
+        label: "Objets",
+        value: 405,
+        quota: 1_000_000,
+        unitLabel: "objets",
+        quotaOfLabel: "sur",
+        tone: "violet",
+        icon: "objects",
+      },
+      transfer: {
+        bytes: null,
+        icon: "transfer",
+      },
+    });
+
+    const number = new Intl.NumberFormat("fr-FR");
+    expect(metrics[1].detail).toBe(`sur ${number.format(1_000_000)} objets (0.0%)`);
+    expect(metrics[2].detail).toBe(`sur ${number.format(1_000)} espaces (0.3%)`);
   });
 
   it("builds storage evolution points from a baseline and keeps a stable fallback without one", () => {

@@ -999,9 +999,9 @@ describe("manager shell pages", () => {
       access_mode: "admin",
       manager_stats_enabled: true,
       max_buckets: 4,
-      max_users: 5,
-      max_roles: 6,
-      max_groups: 4,
+      max_users: 1_000_000,
+      max_roles: 1_000,
+      max_groups: 1_000,
       quota_max_size_gb: 10,
       quota_max_objects: 24,
     });
@@ -1064,7 +1064,7 @@ describe("manager shell pages", () => {
     expect(
       await screen.findByRole(
         "link",
-        { name: /Buckets\s+2\s+2 \/ 4 buckets \(50%\)/i },
+        { name: /Buckets\s+2\s+of 4 buckets \(50%\)/i },
         { timeout: 5_000 },
       ),
     ).toHaveAttribute("href", "/manager/buckets");
@@ -1081,13 +1081,13 @@ describe("manager shell pages", () => {
     expect(quotaStatus!.querySelector('[data-quota-status-row="Buckets"]')).toHaveTextContent("2 / 4");
     expect(quotaStatusScope.getByRole("link", { name: /view all buckets/i })).toHaveAttribute("href", "/manager/buckets");
     expect(quotaStatusScope.getByText("Users")).toBeInTheDocument();
-    expect(quotaStatus!.querySelector('[data-quota-status-row="Users"]')).toHaveTextContent("2 / 5");
+    expect(quotaStatus!.querySelector('[data-quota-status-row="Users"]')).toHaveTextContent("2 / 1,000,000");
     expect(quotaStatusScope.getByRole("link", { name: /view all users/i })).toHaveAttribute("href", "/manager/users");
     expect(quotaStatusScope.getByText("Roles")).toBeInTheDocument();
-    expect(quotaStatus!.querySelector('[data-quota-status-row="Roles"]')).toHaveTextContent("3 / 6");
+    expect(quotaStatus!.querySelector('[data-quota-status-row="Roles"]')).toHaveTextContent("3 / 1,000");
     expect(quotaStatusScope.getByRole("link", { name: /view all roles/i })).toHaveAttribute("href", "/manager/roles");
     expect(quotaStatusScope.getByText("Groups")).toBeInTheDocument();
-    expect(quotaStatus!.querySelector('[data-quota-status-row="Groups"]')).toHaveTextContent("1 / 4");
+    expect(quotaStatus!.querySelector('[data-quota-status-row="Groups"]')).toHaveTextContent("1 / 1,000");
     expect(quotaStatusScope.getByRole("link", { name: /view all groups/i })).toHaveAttribute("href", "/manager/groups");
     expect(screen.queryByRole("heading", { name: "Access management" })).not.toBeInTheDocument();
     expect(quotaStatusScope.queryByText("Bandwidth (month)")).not.toBeInTheDocument();

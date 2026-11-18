@@ -4,7 +4,16 @@
  */
 import { describe, expect, it } from "vitest";
 
-import { formatBytesAxis, formatCheckMode, formatLatency, formatSpacedCompactNumber } from "./format";
+import { formatBytesAxis, formatCheckMode, formatLatency, formatNumber, formatSpacedCompactNumber } from "./format";
+
+describe("formatNumber", () => {
+  it("formats exact integers with the requested UI locale", () => {
+    expect(formatNumber(1_000, "en-US")).toBe("1,000");
+    expect(formatNumber(1_000_000, "en-US")).toBe("1,000,000");
+    expect(formatNumber(1_000_000, "fr-FR")).toBe("1\u202f000\u202f000");
+    expect(formatNumber(1_000_000, "de-DE")).toBe("1.000.000");
+  });
+});
 
 describe("formatSpacedCompactNumber", () => {
   it.each([

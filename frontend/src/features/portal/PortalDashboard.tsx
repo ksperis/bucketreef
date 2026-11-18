@@ -37,7 +37,7 @@ import {
 import { portalBreadcrumbs } from "./portalBreadcrumbs";
 import UiBadge from "../../components/ui/UiBadge";
 import { cx, uiMutedTextClass } from "../../components/ui/styles";
-import { useI18n, type I18nMessage } from "../../i18n";
+import { intlLocale, useI18n, type I18nMessage } from "../../i18n";
 import { formatBytes, formatPercentage, formatSpacedCompactNumber } from "../../utils/format";
 import { clampedPercentageOf } from "../../utils/numbers";
 import {
@@ -445,7 +445,7 @@ function PortalOnboardingDashboard() {
 }
 
 export default function PortalDashboard() {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const {
     workspace,
     health,
@@ -497,6 +497,7 @@ export default function PortalDashboard() {
   const quotaOfLabel = t({ en: "of", fr: "sur", de: "von", zh: "总计" });
   const trendComparisonLabel = t({ en: "vs", fr: "par rapport à", de: "gegenüber", zh: "对比" });
   const baseMetrics = buildWorkspaceDashboardKpis({
+    locale: intlLocale(locale),
     storage: {
       label: t({ en: "Storage used", fr: "Stockage utilisé", de: "Genutzter Speicher", zh: "已用存储" }),
       usedBytes: workspace.usedBytes,
