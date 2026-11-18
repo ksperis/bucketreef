@@ -193,6 +193,7 @@ class S3AccountQueryService:
             or_(
                 text_search_predicate(S3Account.name, search_value, exact=exact),
                 text_search_predicate(S3Account.rgw_account_id, search_value, exact=exact),
+                text_search_predicate(S3Account.description, search_value, exact=exact),
                 tag_match,
                 user_match,
                 group_match,

@@ -121,6 +121,8 @@ class S3UserUpdateService:
     def _apply_local_updates(self, s3_user: S3User, payload: S3UserUpdate) -> None:
         if "name" in payload.model_fields_set:
             s3_user.name = payload.name
+        if "description" in payload.model_fields_set:
+            s3_user.description = payload.description
         if "email" in payload.model_fields_set:
             s3_user.email = payload.email
         self.associations.replace_links(

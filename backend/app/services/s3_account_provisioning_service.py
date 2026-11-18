@@ -318,6 +318,7 @@ class S3AccountProvisioningService:
     ) -> S3Account:
         endpoint_id = int(endpoint.id)
         name = payload.name
+        description = payload.description
         rgw_tenant = payload.rgw_tenant
         email = payload.email
         tags = list(payload.tags)
@@ -325,6 +326,7 @@ class S3AccountProvisioningService:
         def persist_once(write_db: Session) -> int:
             account = S3Account(
                 name=name,
+                description=description,
                 rgw_account_id=rgw_account_id,
                 rgw_tenant=rgw_tenant,
                 rgw_access_key=access_key,
@@ -358,6 +360,7 @@ class S3AccountProvisioningService:
     ) -> S3Account:
         return S3Account(
             name=payload.name,
+            description=payload.description,
             rgw_account_id=rgw_account_id,
             rgw_tenant=payload.rgw_tenant,
             rgw_access_key=access_key,

@@ -863,7 +863,7 @@ export default function S3UsersPage() {
                   <div className="settings-stack">
                     <SettingsSection
                       title={adminText("User details")}
-                      description={adminText("Update the display information and administrative tags for this RGW user.")}
+                      description={adminText("Update the display information, description, and administrative tags for this RGW user.")}
                       presentation="compact"
                     >
                       <div className="settings-fields sm:grid-cols-2">
@@ -878,6 +878,15 @@ export default function S3UsersPage() {
                       value={editForm.email}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
                     />
+                    <div className="sm:col-span-2">
+                      <UiTextarea
+                        label={adminText("Description (optional)")}
+                        rows={3}
+                        maxLength={2000}
+                        value={editForm.description}
+                        onChange={(e) => setEditForm((prev) => ({ ...prev, description: e.target.value }))}
+                      />
+                    </div>
                     <div className="sm:col-span-2">
                       {adminTagCatalogError && <UiInlineMessage tone="warning">{adminTagCatalogError}</UiInlineMessage>}
                       <UiTagEditor

@@ -28,6 +28,7 @@ def s3_user_from_db(
     return S3User(
         id=s3_user.id,
         name=s3_user.name,
+        description=s3_user.description,
         rgw_user_uid=s3_user.rgw_user_uid,
         rgw_tenant=s3_user.rgw_tenant,
         email=s3_user.email,

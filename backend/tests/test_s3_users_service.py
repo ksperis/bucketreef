@@ -1096,6 +1096,7 @@ def test_create_user_persists_credentials(db_session, monkeypatch):
     created = service.create_user(
         S3UserCreate(
             name="Standalone",
+            description="  Backup automation identity  ",
             uid="standalone",
             email="standalone@example.com",
             rgw_tenant="",
@@ -1110,6 +1111,41 @@ def test_create_user_persists_credentials(db_session, monkeypatch):
     assert record.rgw_access_key == "AK-standalone"
     assert record.rgw_secret_key == "SK-standalone"
     assert record.storage_endpoint_id == endpoint.id
+    assert record.description == "Backup automation identity"
+
+
+def test_create_and_update_user_description(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session)
+    fake = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake)
+
+    created = service.create_user(
+        S3UserCreate(
+            name="Description lifecycle",
+            uid="description-lifecycle",
+            rgw_tenant="",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+    record = db_session.get(S3User, created.id)
+    assert record is not None
+    assert record.description is None
+
+    updated = S3UserUpdateService(db_session).update_user(
+        created.id,
+        S3UserUpdate(description="  Replication service identity  "),
+    )
+    assert updated.description == "Replication service identity"
+    db_session.refresh(record)
+    assert record.description == "Replication service identity"
+
+    cleared = S3UserUpdateService(db_session).update_user(
+        created.id,
+        S3UserUpdate(description=None),
+    )
+    assert cleared.description is None
+    db_session.refresh(record)
+    assert record.description is None
 
 
 def test_create_user_retries_sqlite_busy_without_replaying_remote_create(

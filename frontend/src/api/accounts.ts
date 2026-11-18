@@ -39,6 +39,7 @@ type AccountGroupLinkInput = Pick<
 export type S3Account = {
   id: number;
   name: string;
+  description?: string | null;
   tags: TagDefinitionSummary[];
   quota_max_size_gb: number | null;
   quota_max_objects: number | null;
@@ -78,6 +79,7 @@ export type S3Account = {
 export type S3AccountSummary = {
   id: number;
   name: string;
+  description?: string | null;
   tags: TagDefinitionSummary[];
   rgw_account_id: string;
   rgw_tenant: string;
@@ -132,6 +134,7 @@ export async function getS3Account(accountId: number, options?: GetS3AccountOpti
 
 type CreateS3AccountPayload = {
   name: string;
+  description?: string | null;
   rgw_tenant: string;
   email?: string | null;
   quota_max_size_gb?: number | null;
@@ -157,6 +160,7 @@ type UpdateS3AccountPayload = {
   user_links?: AccountUserLinkInput[];
   group_links?: AccountGroupLinkInput[];
   name?: string;
+  description?: string | null;
   email?: string | null;
   storage_endpoint_id?: number;
   tags?: TagDefinitionInput[];

@@ -23,6 +23,7 @@ class S3User(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False)
+    description = Column(String(2000), nullable=True)
     rgw_user_uid = Column(String, nullable=False)
     rgw_tenant = Column(String, nullable=False, default="", server_default="")
     email = Column(String, nullable=True)

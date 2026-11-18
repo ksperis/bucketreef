@@ -467,10 +467,46 @@ def test_create_account_with_root(db_session, monkeypatch):
     assert db_account is not None
     assert db_account.rgw_access_key == "AKIA"
     assert db_account.rgw_account_id is not None
+    assert db_account.description is None
 
     # No interface user is created; only RGW root keys stored on account
     root_user = db_session.scalar(select(User).where(User.email.like("%-admin")))
     assert root_user is None
+
+
+def test_create_and_update_account_description(db_session, monkeypatch):
+    endpoint = _seed_ceph_endpoint(db_session, account_enabled=True, is_default=True)
+    fake_admin = FakeRGWAdmin()
+    service = _build_service(db_session, monkeypatch, fake_admin)
+
+    created = service.create_account_with_manager(
+        S3AccountCreate(
+            name="DescribedAccount",
+            description="  Analytics production account  ",
+            rgw_tenant="",
+            storage_endpoint_id=endpoint.id,
+        )
+    )
+
+    record = db_session.get(S3Account, created.id)
+    assert record is not None
+    assert record.description == "Analytics production account"
+
+    updated = S3AccountUpdateService(db_session).update_account(
+        created.id,
+        S3AccountUpdate(description="  Updated account context  "),
+    )
+    assert updated.description == "Updated account context"
+    db_session.refresh(record)
+    assert record.description == "Updated account context"
+
+    cleared = S3AccountUpdateService(db_session).update_account(
+        created.id,
+        S3AccountUpdate(description="   "),
+    )
+    assert cleared.description is None
+    db_session.refresh(record)
+    assert record.description is None
 
 
 def test_create_account_retries_local_busy_without_replaying_rgw(

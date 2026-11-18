@@ -4,6 +4,7 @@ import type { QuotaSizeUnit } from "../../utils/quotaUnits";
 
 export type AdminRgwCreateForm = {
   name: string;
+  description: string;
   rgw_tenant: string;
   email: string;
   tags: UiTagDefinition[];
@@ -20,6 +21,7 @@ type AdminRgwUserCreateForm = AdminRgwCreateForm & {
 export function emptyAdminRgwCreateForm(storageEndpointId = ""): AdminRgwCreateForm {
   return {
     name: "",
+    description: "",
     rgw_tenant: "",
     email: "",
     tags: [],
@@ -43,6 +45,7 @@ export function adminRgwCreatePayload(
 ) {
   return {
     name: form.name.trim(),
+    description: form.description.trim() || undefined,
     rgw_tenant: managedTenantCreationEnabled ? form.rgw_tenant.trim() : "",
     email: form.email.trim() || undefined,
     tags: normalizeUiTags(form.tags),

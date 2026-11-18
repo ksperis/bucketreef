@@ -12,6 +12,7 @@ function makeUser(overrides: Partial<S3User> = {}): S3User {
   return {
     id: 1,
     name: "RGW User",
+    description: null,
     rgw_user_uid: "rgw-user",
     rgw_tenant: "",
     tags: [],
@@ -46,6 +47,7 @@ describe("adminS3UserForm", () => {
   it("projects persisted user values into editable form state", () => {
     const form = adminS3UserForm(makeUser({
       email: "user@example.test",
+      description: "Analytics ingest user",
       quota_max_size_gb: 0.5,
       quota_max_objects: 42,
       allow_access_key_management: true,
@@ -60,6 +62,7 @@ describe("adminS3UserForm", () => {
 
     expect(form).toEqual(expect.objectContaining({
       email: "user@example.test",
+      description: "Analytics ingest user",
       quota_max_size_gb: "512",
       quota_max_size_unit: "MiB",
       quota_max_objects: "42",
@@ -90,6 +93,7 @@ describe("adminS3UserForm", () => {
 
     expect(adminS3UserPayload(form, baseline, true, true, false)).toEqual({
       name: "Updated",
+      description: null,
       email: null,
       tags: [],
       user_links: [{ user_id: 7, allow_manager_browser_data_access: true }],
@@ -113,6 +117,17 @@ describe("adminS3UserForm", () => {
     form.email = "   ";
 
     expect(adminS3UserPayload(form, adminS3UserForm(makeUser({ email: "user@example.test" })), false, false, false).email).toBeNull();
+  });
+
+  it("normalizes and clears the local description", () => {
+    const baseline = adminS3UserForm(makeUser({ description: "Existing context" }));
+    const form = { ...baseline, description: "  Updated context  " };
+
+    expect(adminS3UserPayload(form, baseline, false, false, false).description)
+      .toBe("Updated context");
+
+    form.description = "   ";
+    expect(adminS3UserPayload(form, baseline, false, false, false).description).toBeNull();
   });
 
   it("emits changed RGW max buckets and clears it with null", () => {

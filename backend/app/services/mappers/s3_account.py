@@ -38,6 +38,7 @@ def s3_account_from_db(
     return S3Account(
         id=account.id,
         name=account.name,
+        description=account.description,
         rgw_account_id=account.rgw_account_id,
         rgw_tenant=account.rgw_tenant,
         quota_max_size_gb=quota_max_size_gb,

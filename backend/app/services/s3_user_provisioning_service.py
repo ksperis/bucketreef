@@ -164,6 +164,7 @@ class S3UserProvisioningService:
         write_db = db or self.db
         s3_user = S3User(
             name=payload.name,
+            description=payload.description,
             rgw_user_uid=uid,
             rgw_tenant=tenant,
             email=payload.email,

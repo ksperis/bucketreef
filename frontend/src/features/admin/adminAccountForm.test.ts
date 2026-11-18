@@ -10,6 +10,7 @@ function makeAccount(overrides: Partial<S3Account> = {}): S3Account {
   return {
     id: 1,
     name: "Account",
+    description: null,
     tags: [],
     quota_max_size_gb: null,
     quota_max_objects: null,
@@ -97,6 +98,18 @@ describe("adminAccountForm", () => {
     expect(adminAccountPayload(draft, baseline, false, true, false)).not.toHaveProperty("max_users");
     expect(adminAccountPayload(draft, baseline, false, true, false)).not.toHaveProperty("max_groups");
     expect(adminAccountPayload(draft, baseline, false, false, false)).not.toHaveProperty("max_buckets");
+  });
+
+  it("projects and normalizes the local description in update payloads", () => {
+    const baseline = adminAccountForm(makeAccount({ description: "Existing context" }));
+    expect(baseline.description).toBe("Existing context");
+
+    const changed = { ...baseline, description: "  Updated context  " };
+    expect(adminAccountPayload(changed, baseline, false, false, false).description)
+      .toBe("Updated context");
+
+    const cleared = { ...baseline, description: "   " };
+    expect(adminAccountPayload(cleared, baseline, false, false, false).description).toBeNull();
   });
 
 });

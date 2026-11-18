@@ -26,6 +26,7 @@ from app.utils.rgw_identifiers import (
     validate_rgw_account_name,
     validate_rgw_tenant,
 )
+from app.utils.normalize import normalize_optional_scalar
 
 
 class AccountUserLink(AccountAccessGrant):
@@ -66,6 +67,7 @@ class S3AccountListingRequest(AdminManagedEntityListingRequest):
 class S3AccountSummary(ManagedS3ResourceFeatures):
     id: int
     name: str
+    description: Optional[str]
     rgw_account_id: str
     rgw_tenant: str
     user_links: list[AccountUserLink]
@@ -97,6 +99,7 @@ class S3Account(S3AccountSummary):
 
 class S3AccountCreate(ApiModel):
     name: str
+    description: Optional[str] = Field(default=None, max_length=2000)
     rgw_tenant: str
     email: Optional[str] = None
     quota_max_size_gb: Optional[float] = None
@@ -109,6 +112,10 @@ class S3AccountCreate(ApiModel):
     @classmethod
     def validate_account_name(cls, value: str) -> str:
         return validate_rgw_account_name(value)
+
+    _normalize_description = field_validator("description", mode="before")(
+        normalize_optional_scalar
+    )
 
     @field_validator("rgw_tenant")
     @classmethod
@@ -152,9 +159,14 @@ class S3AccountUpdate(ManagedS3ResourceFeatureOverrides):
     user_links: Optional[list[AccountUserLinkInput]] = None
     group_links: Optional[list[AccountGroupLinkInput]] = None
     name: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=2000)
     email: Optional[str] = None
     storage_endpoint_id: Optional[int] = None
     tags: OptionalTagDefinitionList = None
+
+    _normalize_description = field_validator("description", mode="before")(
+        normalize_optional_scalar
+    )
 
     @model_validator(mode="after")
     def _reject_null_for_non_nullable_updates(self) -> "S3AccountUpdate":

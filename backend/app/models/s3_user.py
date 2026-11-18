@@ -22,6 +22,7 @@ from app.models.tagging import (
 )
 from app.models.ui_group import UiGroupAvatar
 from app.models.user import UserAvatar
+from app.utils.normalize import normalize_optional_scalar
 
 
 class _S3UserAssociationLink(ApiModel):
@@ -62,6 +63,7 @@ class S3UserListingRequest(AdminManagedEntityListingRequest):
 class S3UserSummary(ManagedS3UserFeatures):
     id: int
     name: str
+    description: Optional[str]
     rgw_user_uid: str
     rgw_tenant: str
     storage_endpoint_id: int
@@ -83,6 +85,7 @@ class S3User(S3UserSummary):
 
 class S3UserCreate(ApiModel):
     name: str
+    description: Optional[str] = Field(default=None, max_length=2000)
     uid: Optional[str] = None
     rgw_tenant: str
     email: Optional[str] = None
@@ -91,6 +94,10 @@ class S3UserCreate(ApiModel):
     quota_max_objects: Optional[int] = None
     storage_endpoint_id: int
     tags: RequiredTagDefinitionList = Field(default_factory=list)
+
+    _normalize_description = field_validator("description", mode="before")(
+        normalize_optional_scalar
+    )
 
     @field_validator("uid")
     @classmethod
@@ -115,6 +122,7 @@ class S3UserImport(ApiModel):
 
 class S3UserUpdate(ManagedS3UserFeatureOverrides):
     name: Optional[str] = None
+    description: Optional[str] = Field(default=None, max_length=2000)
     email: Optional[str] = None
     user_links: Optional[list[S3UserUserLinkInput]] = None
     group_links: Optional[list[S3UserGroupLinkInput]] = None
@@ -123,6 +131,10 @@ class S3UserUpdate(ManagedS3UserFeatureOverrides):
     quota_max_objects: Optional[int] = None
     max_buckets: Optional[int] = Field(default=None, ge=0)
     tags: OptionalTagDefinitionList = None
+
+    _normalize_description = field_validator("description", mode="before")(
+        normalize_optional_scalar
+    )
 
     @model_validator(mode="after")
     def _reject_null_for_non_nullable_updates(self) -> "S3UserUpdate":

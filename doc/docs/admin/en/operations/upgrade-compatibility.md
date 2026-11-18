@@ -1,5 +1,13 @@
 # Operations: Upgrade and Compatibility Notes
 
+## 2026-11 RGW resource descriptions
+
+Migration `0275_rgw_resource_descriptions` adds nullable local description
+columns to RGW Accounts and RGW Users. Descriptions are BucketReef metadata and
+do not change Ceph RGW resources. Upgrade the bundled backend and frontend
+together so the Admin create, edit, search, and inventory views use the same
+API contract.
+
 ## Shared deployment configuration
 
 This release changes the deployment contract for `FEATURE_*_ENABLED` and

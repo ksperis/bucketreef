@@ -28,6 +28,7 @@ def _seed_s3_user(
     name: str,
     uid: str,
     created_at: datetime | None = None,
+    description: str | None = None,
 ) -> S3User:
     endpoint = db_session.scalar(sa.select(StorageEndpoint).order_by(StorageEndpoint.id.asc()))
     if endpoint is None:
@@ -41,6 +42,7 @@ def _seed_s3_user(
         db_session.flush()
     row = S3User(
         name=name,
+        description=description,
         rgw_user_uid=uid,
         email=f"{uid}@example.test",
         rgw_access_key=f"AK-{uid}",
@@ -193,6 +195,36 @@ def test_admin_s3_users_exact_search_is_server_side_and_case_insensitive(client,
     )
     assert response.status_code == 200, response.text
     assert [item["name"] for item in response.json()["items"]] == ["exact-user"]
+
+
+def test_admin_s3_users_search_matches_description_contains_and_exact(client, db_session):
+    _seed_s3_user(
+        db_session,
+        name="replication-user",
+        uid="uid-description-replication",
+        description="Replication service identity",
+    )
+    _seed_s3_user(
+        db_session,
+        name="replication-archive",
+        uid="uid-description-archive",
+        description="Replication service identity archive",
+    )
+
+    contains = client.get("/api/admin/s3-users", params={"search": "service identity"})
+    assert contains.status_code == 200, contains.text
+    assert [item["name"] for item in contains.json()["items"]] == [
+        "replication-archive",
+        "replication-user",
+    ]
+
+    exact = client.get(
+        "/api/admin/s3-users",
+        params={"search": " REPLICATION SERVICE IDENTITY ", "search_exact": True},
+    )
+    assert exact.status_code == 200, exact.text
+    assert [item["name"] for item in exact.json()["items"]] == ["replication-user"]
+    assert exact.json()["items"][0]["description"] == "Replication service identity"
 
 
 def test_admin_s3_users_search_and_detail_include_direct_group_links(client, db_session):

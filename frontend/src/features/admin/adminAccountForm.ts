@@ -43,6 +43,7 @@ export function buildImportAccountDraft(
 export function adminAccountForm(account: S3Account) {
   const quota = buildAdminQuotaSizeEditorValue(account.quota_max_size_gb);
   return {
+    description: account.description ?? "",
     tags: normalizeUiTags(account.tags),
     quota_max_size_gb: quota.value,
     quota_max_size_unit: quota.unit,
@@ -87,6 +88,7 @@ export function adminAccountPayload(
   canManageManagerFeatures: boolean,
 ): Parameters<typeof updateS3Account>[1] {
   return {
+    description: draft.description.trim() || null,
     tags: normalizeUiTags(draft.tags),
     user_links: draft.user_links.map(({
       user_id,

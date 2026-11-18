@@ -15,6 +15,7 @@ import { useSettingsRemoteDraft } from "../../components/settings/useSettingsRem
 import { useSettingsFormController } from "../../components/settings/useSettingsFormController";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import UiInput from "../../components/ui/UiInput";
+import UiTextarea from "../../components/ui/UiTextarea";
 import UiTagEditor from "../../components/UiTagEditor";
 import UsageTile from "../../components/UsageTile";
 import { useTagCatalog } from "../../hooks/useTagCatalog";
@@ -213,7 +214,10 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
             {error && <UiInlineMessage tone="error" role="alert">{error}</UiInlineMessage>}
             {saved && <UiInlineMessage tone="success" role="status">{adminText("Account settings saved.")}{portalDirty ? adminText(" Portal changes remain unsaved.") : ""}</UiInlineMessage>}
             <div hidden={tab !== "general"}><div className="settings-stack">
-              <SettingsSection title={adminText("Account details")} description={adminText("Use administrative tags to make this account easier to find and organize.")} presentation="compact">
+              <SettingsSection title={adminText("Account details")} description={adminText("Use the description and administrative tags to make this account easier to find and organize.")} presentation="compact">
+                <UiTextarea label={adminText("Description (optional)")} rows={3} maxLength={2000}
+                  value={form.draft.description} disabled={controller.locked}
+                  onChange={event => update("description", event.target.value)} />
                 {tags.error && <UiInlineMessage tone="warning">{tags.error}</UiInlineMessage>}
                 <UiTagEditor label={adminText("Tags")} tags={form.draft.tags} catalog={tags.catalog} disabled={controller.locked}
                   onChange={value => update("tags", value)} placeholder={adminText("Add a tag for this account")} hint={tags.loading ? adminText("Loading existing tag catalog...") : undefined} />

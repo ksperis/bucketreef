@@ -21,6 +21,7 @@ from app.models.app_settings import AppSettings
 
 
 _RECENT_LINEAR_REVISIONS = (
+    "0275_rgw_resource_descriptions",
     "0274_manager_browser_resource_access",
     "0273_manager_browser_data_access_policy",
     "0272_resource_feature_switches",
@@ -164,6 +165,51 @@ def test_alembic_exposes_single_head_after_rejoined_merge():
         "0234_remove_first_admin_created_user_id",
         _LEGACY_GITLAB_HEAD,
     )
+
+
+def test_rgw_resource_description_migration_upgrades_and_downgrades(tmp_path, monkeypatch):
+    database_path = tmp_path / "rgw-resource-descriptions.sqlite"
+    database_url = f"sqlite:///{database_path}"
+    monkeypatch.setenv("DATABASE_URL", database_url)
+    monkeypatch.delenv("BUCKETREEF_DB_BACKUP_VERIFIED", raising=False)
+    get_settings.cache_clear()
+
+    config = _alembic_config()
+    engine = sa.create_engine(database_url)
+    try:
+        command.upgrade(config, "0274_manager_browser_resource_access")
+        with engine.connect() as connection:
+            inspector = sa.inspect(connection)
+            assert "description" not in {
+                column["name"] for column in inspector.get_columns("s3_accounts")
+            }
+            assert "description" not in {
+                column["name"] for column in inspector.get_columns("s3_users")
+            }
+
+        command.upgrade(config, "0275_rgw_resource_descriptions")
+        with engine.connect() as connection:
+            inspector = sa.inspect(connection)
+            for table_name in ("s3_accounts", "s3_users"):
+                description = next(
+                    column
+                    for column in inspector.get_columns(table_name)
+                    if column["name"] == "description"
+                )
+                assert description["nullable"] is True
+
+        command.downgrade(config, "0274_manager_browser_resource_access")
+        with engine.connect() as connection:
+            inspector = sa.inspect(connection)
+            assert "description" not in {
+                column["name"] for column in inspector.get_columns("s3_accounts")
+            }
+            assert "description" not in {
+                column["name"] for column in inspector.get_columns("s3_users")
+            }
+    finally:
+        engine.dispose()
+        get_settings.cache_clear()
 
 
 def test_user_active_flag_migration_backfills_null_and_enforces_not_null(

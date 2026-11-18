@@ -12,6 +12,7 @@ import { buildAdminQuotaSizeEditorValue } from "./adminQuotaForm";
 export function emptyAdminS3UserForm() {
   return {
     name: "",
+    description: "",
     email: "",
     tags: [] as UiTagDefinition[],
     user_links: [] as S3UserUserLinkInput[],
@@ -75,6 +76,7 @@ export function adminS3UserForm(user: S3User): AdminS3UserForm {
   const quota = buildAdminQuotaSizeEditorValue(user.quota_max_size_gb);
   return {
     name: user.name,
+    description: user.description ?? "",
     email: user.email ?? "",
     tags: normalizeUiTags(user.tags),
     user_links: user.user_links.map<S3UserUserLinkInput>((link) => ({
@@ -113,6 +115,7 @@ export function adminS3UserPayload(
 ): UpdateS3UserPayload {
   return {
     name: form.name || undefined,
+    description: form.description.trim() || null,
     email: form.email.trim() || null,
     tags: normalizeUiTags(form.tags),
     user_links: form.user_links.map((link) => ({ ...link })),

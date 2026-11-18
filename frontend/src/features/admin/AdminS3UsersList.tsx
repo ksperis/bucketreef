@@ -84,24 +84,32 @@ export default function AdminS3UsersList({
         cellClassName: "min-w-[280px] max-w-[420px]",
         render: (user) => {
           const tagItems = buildUiTagItems(user.tags);
+          const description = user.description?.trim();
           return (
-            <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <div className="flex min-w-0 flex-1 items-baseline gap-2">
-                <span className="min-w-0 truncate">{user.name}</span>
-                {user.rgw_tenant && (
-                  <span className="ui-caption shrink-0 text-[var(--ui-text-muted)]">
-                    ({user.rgw_tenant})
-                  </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <div className="flex min-w-0 flex-1 items-baseline gap-2">
+                  <span className="min-w-0 truncate">{user.name}</span>
+                  {user.rgw_tenant && (
+                    <span className="ui-caption shrink-0 text-[var(--ui-text-muted)]">
+                      ({user.rgw_tenant})
+                    </span>
+                  )}
+                </div>
+                {tagItems.length > 0 && (
+                  <UiTagBadgeList
+                    items={tagItems}
+                    variant="listing-compact"
+                    layout="inline-compact"
+                    className="ml-auto max-w-full"
+                    maxVisible={4}
+                  />
                 )}
               </div>
-              {tagItems.length > 0 && (
-                <UiTagBadgeList
-                  items={tagItems}
-                  variant="listing-compact"
-                  layout="inline-compact"
-                  className="ml-auto max-w-full"
-                  maxVisible={4}
-                />
+              {description && (
+                <div className="ui-caption mt-0.5 truncate text-[var(--ui-text-muted)]" title={description}>
+                  {description}
+                </div>
               )}
             </div>
           );

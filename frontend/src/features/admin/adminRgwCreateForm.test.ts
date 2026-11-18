@@ -10,6 +10,7 @@ describe("adminRgwCreateForm", () => {
     const form = {
       ...emptyAdminRgwCreateForm("10"),
       name: " Account ",
+      description: " Administrative account for analytics ",
       rgw_tenant: " tenant-a ",
       email: " account@example.test ",
       tags: [{ label: " Team ", color_key: "sky" as const, scope: "standard" as const }],
@@ -19,6 +20,7 @@ describe("adminRgwCreateForm", () => {
 
     expect(adminRgwCreatePayload(form, true)).toEqual({
       name: "Account",
+      description: "Administrative account for analytics",
       rgw_tenant: "tenant-a",
       email: "account@example.test",
       tags: [{ id: undefined, label: "Team", color_key: "sky", scope: "standard" }],
@@ -39,6 +41,7 @@ describe("adminRgwCreateForm", () => {
 
     expect(adminRgwUserCreatePayload(form, true)).toEqual({
       name: "RGW User",
+      description: undefined,
       uid: "user-a",
       rgw_tenant: "",
       email: undefined,

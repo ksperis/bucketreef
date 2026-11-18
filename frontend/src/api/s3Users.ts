@@ -13,6 +13,7 @@ import type { QuotaSizeUnit } from "../utils/quotaUnits";
 export type S3User = {
   id: number;
   name: string;
+  description?: string | null;
   rgw_user_uid: string;
   rgw_tenant: string;
   tags: TagDefinitionSummary[];
@@ -70,6 +71,7 @@ export type S3UserGroupLinkInput = Pick<
 export type S3UserSummary = {
   id: number;
   name: string;
+  description?: string | null;
   rgw_user_uid: string;
   rgw_tenant: string;
   tags: TagDefinitionSummary[];
@@ -92,6 +94,7 @@ export type S3UserSummary = {
 
 type CreateS3UserPayload = {
   name: string;
+  description?: string | null;
   uid?: string | null;
   rgw_tenant: string;
   email?: string | null;
@@ -121,6 +124,7 @@ type ImportS3UserPayload = {
 
 export type UpdateS3UserPayload = {
   name?: string;
+  description?: string | null;
   email?: string | null;
   user_links?: S3UserUserLinkInput[];
   group_links?: S3UserGroupLinkInput[];

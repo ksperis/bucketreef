@@ -37,6 +37,7 @@ const makeTag = (id: number, label: string, color_key = "neutral", scope = "stan
 const makeAccountDetail = (overrides: Record<string, unknown> = {}) => ({
   id: 1,
   name: "acc-1",
+  description: null,
   tags: [makeTag(501, "gold", "amber")],
   rgw_account_id: "RGW000000000000001",
   rgw_tenant: "",
@@ -202,6 +203,7 @@ describe("AccountsPage modal tabs", () => {
         {
           id: 1,
           name: "acc-1",
+          description: null,
           tags: [makeTag(501, "gold", "amber")],
           rgw_account_id: "RGW000000000000001",
           storage_endpoint_id: 10,
@@ -369,6 +371,56 @@ describe("AccountsPage modal tabs", () => {
     const tenantLabel = within(table).getByText("(customer01)");
     expect(tenantLabel).toHaveClass("ui-caption");
     expect(tenantLabel.closest("td")).toContainElement(within(table).getByText("tenant-account"));
+  });
+
+  it("renders a truncated description line only when an account has a description", async () => {
+    listS3AccountsMock.mockResolvedValueOnce({
+      items: [
+        {
+          ...makeAccountDetail({ id: 1, name: "described-account" }),
+          description: "Primary analytics account",
+        },
+        {
+          ...makeAccountDetail({ id: 2, name: "plain-account", rgw_account_id: "RGW000000000000002" }),
+          description: null,
+        },
+      ],
+      total: 2,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    renderPage();
+
+    const description = await screen.findByText("Primary analytics account");
+    expect(description).toHaveClass("truncate", "ui-caption");
+    expect(description).toHaveAttribute("title", "Primary analytics account");
+    expect(within(description.closest("td") as HTMLElement).getByText("described-account")).toBeInTheDocument();
+    const plainCell = screen.getByText("plain-account").closest("td") as HTMLElement;
+    expect(plainCell.querySelector(".ui-caption")).toBeNull();
+  });
+
+  it("tracks account description edits as dirty and sends the normalized value", async () => {
+    getS3AccountMock.mockResolvedValueOnce(makeAccountDetail({ description: "Existing context" }));
+    updateS3AccountMock.mockResolvedValueOnce(makeAccountDetail({ description: "Updated context" }));
+    renderPage();
+
+    await screen.findByText("acc-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+
+    const description = await screen.findByRole("textbox", { name: "Description (optional)" });
+    expect(description).toHaveValue("Existing context");
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+
+    fireEvent.change(description, { target: { value: "  Updated context  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(updateS3AccountMock).toHaveBeenCalledOnce());
+    expect(updateS3AccountMock).toHaveBeenCalledWith(
+      1,
+      expect.objectContaining({ description: "Updated context" }),
+    );
   });
 
   it("keeps usage and quotas in General and exposes account-specific settings separately", async () => {

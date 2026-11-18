@@ -133,6 +133,7 @@ class S3UserQueryService:
                     text_search_predicate(S3UserModel.name, search_value, exact=exact),
                     text_search_predicate(S3UserModel.rgw_user_uid, search_value, exact=exact),
                     text_search_predicate(S3UserModel.email, search_value, exact=exact),
+                    text_search_predicate(S3UserModel.description, search_value, exact=exact),
                     text_search_predicate(User.email, search_value, exact=exact),
                     text_search_predicate(User.full_name, search_value, exact=exact),
                     text_search_predicate(UiGroup.name, search_value, exact=exact),

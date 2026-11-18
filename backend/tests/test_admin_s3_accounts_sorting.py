@@ -23,10 +23,12 @@ def _seed_account(
     *,
     name: str,
     rgw_account_id: str | None,
+    description: str | None = None,
 ) -> S3Account:
     row = make_s3_account(
         db_session,
         name=name,
+        description=description,
         rgw_account_id=rgw_account_id,
         rgw_user_uid=f"{rgw_account_id.lower()}-admin",
         rgw_access_key=f"AK-{name}",
@@ -224,6 +226,36 @@ def test_admin_accounts_exact_search_is_server_side_and_case_insensitive(client,
     )
     assert response.status_code == 200, response.text
     assert [item["name"] for item in response.json()["items"]] == ["exact-account"]
+
+
+def test_admin_accounts_search_matches_description_contains_and_exact(client, db_session):
+    _seed_account(
+        db_session,
+        name="analytics-account",
+        rgw_account_id="RGW-DESCRIPTION-ACCOUNT",
+        description="Primary analytics workspace",
+    )
+    _seed_account(
+        db_session,
+        name="other-account",
+        rgw_account_id="RGW-DESCRIPTION-OTHER",
+        description="Primary analytics workspace archive",
+    )
+
+    contains = client.get("/api/admin/accounts", params={"search": "analytics workspace"})
+    assert contains.status_code == 200, contains.text
+    assert [item["name"] for item in contains.json()["items"]] == [
+        "analytics-account",
+        "other-account",
+    ]
+
+    exact = client.get(
+        "/api/admin/accounts",
+        params={"search": " PRIMARY ANALYTICS WORKSPACE ", "search_exact": True},
+    )
+    assert exact.status_code == 200, exact.text
+    assert [item["name"] for item in exact.json()["items"]] == ["analytics-account"]
+    assert exact.json()["items"][0]["description"] == "Primary analytics workspace"
 
 
 def test_admin_accounts_search_matches_direct_group_links(client, db_session):

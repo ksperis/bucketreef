@@ -2,6 +2,7 @@
 import type { ComponentProps } from "react";
 import UiInput from "../../components/ui/UiInput";
 import UiInlineMessage from "../../components/ui/UiInlineMessage";
+import UiTextarea from "../../components/ui/UiTextarea";
 import UiTagEditor from "../../components/UiTagEditor";
 import { SettingsSection } from "../../components/settings/SettingsLayout";
 import { useI18n } from "../../i18n";
@@ -39,6 +40,8 @@ export default function AdminRgwCreateFields({kind, value, onChange, errors, bus
           <UiInput label={kind === "account" ? "Email contact" : "Email"} name="email" type="email" value={value.email}
             error={errors.email} placeholder="contact@example.com" onChange={event => onChange({email: event.target.value})} />
         </div>
+        <UiTextarea label={adminText("Description (optional)")} name="description" rows={3} maxLength={2000}
+          value={value.description} disabled={busy} onChange={event => onChange({description: event.target.value})} />
         <AdminRgwEndpointField {...endpoint} value={value.storage_endpoint_id} error={errors.storage_endpoint_id}
           onChange={storage_endpoint_id => onChange({storage_endpoint_id})} />
         {tags.error && <UiInlineMessage tone="warning">{tags.error}</UiInlineMessage>}

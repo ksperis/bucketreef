@@ -44,6 +44,7 @@ function makeS3User(overrides: Partial<S3User> = {}): S3User {
   return {
     id: 5,
     name: "rgw-user-1",
+    description: null,
     rgw_user_uid: "rgw-uid-1",
     rgw_tenant: "",
     tags: [],
@@ -289,6 +290,60 @@ describe("S3UsersPage modal tabs", () => {
     const tenantLabel = within(table).getByText("(customer01)");
     expect(tenantLabel).toHaveClass("ui-caption");
     expect(within(tenantLabel.closest("td") as HTMLElement).getByText("tenant-user")).toBeInTheDocument();
+  });
+
+  it("renders a truncated description line only when an RGW user has a description", async () => {
+    listS3UsersMock.mockResolvedValueOnce({
+      items: [
+        makeS3User({ id: 5, name: "described-user", description: "Replication service identity" }),
+        makeS3User({ id: 6, name: "plain-user", rgw_user_uid: "plain-user", description: null }),
+      ],
+      total: 2,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    render(
+      <MemoryRouter>
+        <S3UsersPage />
+      </MemoryRouter>
+    );
+
+    const description = await screen.findByText("Replication service identity");
+    expect(description).toHaveClass("truncate", "ui-caption");
+    expect(description).toHaveAttribute("title", "Replication service identity");
+    expect(within(description.closest("td") as HTMLElement).getByText("described-user")).toBeInTheDocument();
+    const plainName = screen.getAllByText("plain-user").find((node) => node.tagName === "SPAN");
+    expect(plainName).toBeDefined();
+    const plainCell = plainName!.closest("td") as HTMLElement;
+    expect(plainCell.querySelector(".ui-caption")).toBeNull();
+  });
+
+  it("tracks RGW user description edits as dirty and sends the normalized value", async () => {
+    getS3UserMock.mockResolvedValueOnce(makeS3User({ description: "Existing context" }));
+    updateS3UserMock.mockResolvedValueOnce(makeS3User({ description: "Updated context" }));
+    render(
+      <MemoryRouter>
+        <S3UsersPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("rgw-user-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+
+    const description = await screen.findByRole("textbox", { name: "Description (optional)" });
+    expect(description).toHaveValue("Existing context");
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+
+    fireEvent.change(description, { target: { value: "  Updated context  " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    await waitFor(() => expect(updateS3UserMock).toHaveBeenCalledOnce());
+    expect(updateS3UserMock).toHaveBeenCalledWith(
+      5,
+      expect.objectContaining({ description: "Updated context" }),
+    );
   });
 
   it("keeps usage and quotas in General and exposes RGW user settings separately", async () => {
