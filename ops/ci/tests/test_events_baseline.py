@@ -74,6 +74,26 @@ def test_manual_qualify_falls_back_to_parent_when_no_baseline_exists(monkeypatch
     assert plan["base_sha"] == PARENT
 
 
+def test_manual_qualify_falls_back_to_parent_when_baseline_is_stale(monkeypatch):
+    baseline = "c" * 40
+    monkeypatch.setattr(gitlab_api, "latest_baseline", lambda api, ref: baseline)
+
+    def fake_git(*args):
+        if args == ("rev-parse", "HEAD"):
+            return SHA
+        if args == ("rev-parse", f"{SHA}^"):
+            return PARENT
+        raise AssertionError(args)
+
+    monkeypatch.setattr(events, "git", fake_git)
+    monkeypatch.setattr(events, "changes", lambda base, head: None if (base, head) == (baseline, SHA) else (_ for _ in ()).throw(AssertionError((base, head))))
+
+    plan = events.gitlab_plan(qualify_env(), api=object())
+
+    assert plan["base_sha"] == PARENT
+    assert plan["full"] is True
+
+
 @pytest.mark.parametrize("mode", ["regression", "security"])
 def test_scheduled_secret_scan_profiles_use_latest_baseline(monkeypatch, mode):
     baseline = "c" * 40

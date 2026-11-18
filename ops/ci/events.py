@@ -38,6 +38,7 @@ def gitlab_plan(env, api=None):
     if git("rev-parse", "HEAD") != sha:
         raise ValueError("Checkout differs from GitLab revision")
     base = None
+    paths = None
     if profile in {"integration", "qualify", "prepare-release", "regression", "security"}:
         from gitlab_api import GitLabAPI, latest_baseline
         base = latest_baseline(api or GitLabAPI(), ref)
@@ -46,7 +47,14 @@ def gitlab_plan(env, api=None):
                 base = git("rev-parse", f"{sha}^")
             except subprocess.CalledProcessError as error:
                 raise ValueError("No CI baseline exists and the commit parent cannot be resolved") from error
-    paths = changes(base, sha)
+            paths = changes(base, sha)
+        else:
+            paths = changes(base, sha)
+            if paths is None:
+                try:
+                    base = git("rev-parse", f"{sha}^")
+                except subprocess.CalledProcessError as error:
+                    raise ValueError("CI baseline is unusable and the commit parent cannot be resolved") from error
     transition = None
     if profile == "integration" and ref == "main":
         transition = release_transition(env.get("CI_COMMIT_BEFORE_SHA"), sha)
