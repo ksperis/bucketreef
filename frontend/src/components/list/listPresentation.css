@@ -188,12 +188,12 @@
 :root.dark .ui-list-action.ui-list-action-active, :root.dark .ui-list-action[aria-pressed="true"] { color: rgb(var(--ui-primary-200-rgb)); }
 
 /* Association categories keep their established meaning across themes. */
-.ui-list-association-accounts { background: #e0f2fe; color: #075985; }
-.ui-list-association-s3_users { background: #ede9fe; color: #5b21b6; }
-.ui-list-association-connections { background: #d1fae5; color: #065f46; }
-:root.dark .ui-list-association-accounts { background: #0c4a6e66; color: #e0f2fe; }
-:root.dark .ui-list-association-s3_users { background: #4c1d9566; color: #ede9fe; }
-:root.dark .ui-list-association-connections { background: #064e3b66; color: #d1fae5; }
+.ui-list-association-accounts { background: #e0f2fe; border-color: #bae6fd; color: #075985; }
+.ui-list-association-s3_users { background: #ede9fe; border-color: #ddd6fe; color: #5b21b6; }
+.ui-list-association-connections { background: #d1fae5; border-color: #a7f3d0; color: #065f46; }
+:root.dark .ui-list-association-accounts { background: #0c4a6e66; border-color: #0c4a6e; color: #e0f2fe; }
+:root.dark .ui-list-association-s3_users { background: #4c1d9566; border-color: #4c1d95; color: #ede9fe; }
+:root.dark .ui-list-association-connections { background: #064e3b66; border-color: #064e3b; color: #d1fae5; }
 .ui-list-association-trigger:focus-visible { outline: 2px solid var(--ui-focus-ring); outline-offset: 2px; }
 @media (max-width: 767px), (pointer: coarse) {
   .ui-list-association-trigger[tabindex] { min-height: 44px; align-items: center; }
