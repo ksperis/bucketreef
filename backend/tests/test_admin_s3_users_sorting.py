@@ -13,6 +13,7 @@ from app.main import app
 from app.routers.admin import s3_users as s3_users_router
 from app.services import app_settings_service
 from app.services.tags_service import TagsService
+from tests.storage_endpoint_features import persisted_endpoint_features
 
 
 @pytest.fixture(autouse=True)
@@ -36,6 +37,7 @@ def _seed_s3_user(
             name="sorting-ceph",
             endpoint_url="https://sorting-ceph.example.test",
             provider=StorageProvider.CEPH.value,
+            features=persisted_endpoint_features(),
             is_default=True,
         )
         db_session.add(endpoint)
@@ -255,6 +257,7 @@ def test_admin_s3_users_search_and_detail_include_direct_group_links(client, db_
     assert detail_payload["group_links"][0]["group_id"] == group.id
     assert detail_payload["group_links"][0]["group_name"] == "Ops Readers"
     assert detail_payload["group_links"][0]["group_avatar"]["initials"] == "OR"
+    assert detail_payload["max_buckets"] is None
 
 
 def test_admin_s3_users_search_matches_linked_ui_user_email(client, db_session):
@@ -332,6 +335,7 @@ def test_admin_s3_users_update_replaces_direct_group_links(client, db_session):
     assert payload["group_links"][0]["group_name"] == "New User Group"
     assert payload["group_links"][0]["group_avatar"]["initials"] == "NG"
     assert payload["group_links"][0]["allow_manager_browser_data_access"] is True
+    assert payload["max_buckets"] is None
     rows = db_session.scalars(
         sa.select(UiGroupS3User).where(UiGroupS3User.s3_user_id == s3_user.id)
     ).all()

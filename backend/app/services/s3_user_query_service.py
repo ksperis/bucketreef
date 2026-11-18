@@ -83,8 +83,7 @@ class S3UserQueryService:
                 quota_admin,
             )
         if include_limits:
-            admin = quota_admin or self.rgw_context.admin_for_endpoint(endpoint)
-            _, _, max_buckets = self.metrics.get_limits(context, admin)
+            _, _, max_buckets = self.metrics.get_limits(context, quota_admin)
         return s3_user_from_db(
             row,
             user_links=user_links_map.get(row.id, []),
