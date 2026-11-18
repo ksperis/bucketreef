@@ -47,6 +47,7 @@ def test_s3_connection_responses_require_complete_canonical_payloads() -> None:
     assert set(S3ConnectionGroupDetail.model_json_schema()["required"]) == {
         "id",
         "name",
+        "description",
         "avatar",
     }
     assert set(S3ConnectionAdminItem.model_json_schema()["required"]) == {

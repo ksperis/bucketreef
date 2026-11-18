@@ -126,6 +126,7 @@ def test_user_output_requires_complete_canonical_payload() -> None:
         "quota_alerts_enabled",
         "quota_alerts_global_watch",
         "ui_preferences",
+        "account_details",
         "account_links",
         "group_details",
         "s3_user_links",

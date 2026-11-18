@@ -28,11 +28,13 @@ def test_s3_user_responses_require_complete_canonical_payloads() -> None:
         "allow_manager_browser_data_access",
         "group_id",
         "group_name",
+        "group_description",
         "group_avatar",
     }
     assert set(S3User.model_json_schema()["required"]) == {
         "id",
         "name",
+        "description",
         "rgw_user_uid",
         "rgw_tenant",
         "email",
@@ -63,6 +65,7 @@ def test_s3_user_responses_require_complete_canonical_payloads() -> None:
     assert set(S3UserSummary.model_json_schema()["required"]) == {
         "id",
         "name",
+        "description",
         "rgw_user_uid",
         "rgw_tenant",
         "storage_endpoint_id",

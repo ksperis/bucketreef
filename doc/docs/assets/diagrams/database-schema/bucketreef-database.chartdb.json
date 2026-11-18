@@ -1755,6 +1755,27 @@
           "check": null
         },
         {
+          "id": "field:s3_accounts.description",
+          "name": "description",
+          "type": {
+            "id": "varchar(2000)",
+            "name": "varchar(2000)"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": "2000",
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
           "id": "field:s3_accounts.rgw_account_id",
           "name": "rgw_account_id",
           "type": {
@@ -9894,6 +9915,27 @@
           "isArray": false,
           "createdAt": 0,
           "characterMaximumLength": null,
+          "precision": null,
+          "scale": null,
+          "default": null,
+          "collation": null,
+          "comments": null,
+          "check": null
+        },
+        {
+          "id": "field:s3_users.description",
+          "name": "description",
+          "type": {
+            "id": "varchar(2000)",
+            "name": "varchar(2000)"
+          },
+          "primaryKey": false,
+          "unique": false,
+          "nullable": true,
+          "increment": null,
+          "isArray": false,
+          "createdAt": 0,
+          "characterMaximumLength": "2000",
           "precision": null,
           "scale": null,
           "default": null,

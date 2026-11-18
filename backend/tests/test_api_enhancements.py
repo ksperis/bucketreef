@@ -32,11 +32,16 @@ def test_admin_create_account_delegates_to_service(client: TestClient):
             return S3AccountSchema(
                 id=101,
                 name=payload.name,
+                description=None,
                 email=payload.email,
                 rgw_account_id="RGW00000000000000101",
                 rgw_tenant="",
                 quota_max_size_gb=payload.quota_max_size_gb,
                 quota_max_objects=payload.quota_max_objects,
+                max_buckets=None,
+                max_users=None,
+                max_roles=None,
+                max_groups=None,
                 used_bytes=None,
                 used_objects=None,
                 user_links=[],
@@ -60,7 +65,7 @@ def test_admin_create_account_delegates_to_service(client: TestClient):
                 allow_bucket_usage_stats=None,
                 allow_bucket_usage_stats_collection=None,
                 allow_multisite_endpoint_switching=None,
-                    allow_manager_browser_data_access_for_all_admins=None,
+                allow_manager_browser_data_access_for_all_admins=None,
                 tags=[],
             )
 

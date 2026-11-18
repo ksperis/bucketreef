@@ -32,11 +32,13 @@ def test_s3_account_responses_require_complete_canonical_payloads() -> None:
         "allow_manager_browser_data_access",
         "group_id",
         "group_name",
+        "group_description",
         "group_avatar",
     }
     assert set(S3Account.model_json_schema()["required"]) == {
         "id",
         "name",
+        "description",
         "rgw_account_id",
         "rgw_tenant",
         "quota_max_size_gb",
@@ -75,6 +77,7 @@ def test_s3_account_responses_require_complete_canonical_payloads() -> None:
     assert set(S3AccountSummary.model_json_schema()["required"]) == {
         "id",
         "name",
+        "description",
         "rgw_account_id",
         "rgw_tenant",
         "user_links",
