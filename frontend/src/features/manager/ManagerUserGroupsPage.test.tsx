@@ -74,6 +74,9 @@ describe("ManagerUserGroupsPage", () => {
     expect(api.listGroups).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Add to groups" }));
     await waitFor(() => expect(api.listGroups).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 }));
+    const picker = screen.getByRole("region", { name: "Add to groups" });
+    const groupsTable = screen.getByRole("table");
+    expect(picker.compareDocumentPosition(groupsTable) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("checkbox", { name: /operators/ })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("checkbox", { name: /auditors/ }));
     fireEvent.click(screen.getByRole("button", { name: "Add" }));

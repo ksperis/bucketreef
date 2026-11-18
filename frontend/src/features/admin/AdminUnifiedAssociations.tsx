@@ -92,6 +92,7 @@ export default function AdminUnifiedAssociations({
         countLabel={countLabel}
         actions={addActions}
       />
+      {picker}
       <DataTableShell
         columns={columns}
         rows={rows}
@@ -103,7 +104,6 @@ export default function AdminUnifiedAssociations({
         containerClassName={adminAssociationTableContainerClass}
         responsiveCards
       />
-      {picker}
     </div>
   );
 }

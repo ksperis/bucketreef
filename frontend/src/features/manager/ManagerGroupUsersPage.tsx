@@ -236,17 +236,6 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
           </ListActionButton>
         )}
       >
-        <DataTableShell
-          columns={userColumns}
-          rows={users}
-          rowKey={(user) => user.name}
-          status={tableStatus}
-          loadingMessage={text("Loading members...")}
-          errorMessage={text("Unable to load users.")}
-          emptyMessage={text("No members in this group.")}
-          tableClassName="ui-data-table"
-          responsiveCards
-        />
         {pickerOpen ? (
           <ManagerIamAssociationPicker
             title={text("Add members")}
@@ -275,6 +264,17 @@ export default function ManagerGroupUsersPage({ embedded = false }: { embedded?:
             onSubmit={() => void handleAdd()}
           />
         ) : null}
+        <DataTableShell
+          columns={userColumns}
+          rows={users}
+          rowKey={(user) => user.name}
+          status={tableStatus}
+          loadingMessage={text("Loading members...")}
+          errorMessage={text("Unable to load users.")}
+          emptyMessage={text("No members in this group.")}
+          tableClassName="ui-data-table"
+          responsiveCards
+        />
       </ListPageSection>
       {memberConfirmation.confirmationDialog}
     </>;

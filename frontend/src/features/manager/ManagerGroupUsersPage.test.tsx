@@ -99,6 +99,9 @@ describe("ManagerGroupUsersPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Add members" }));
     await waitFor(() => expect(listIamUsersPageMock).toHaveBeenCalledWith("acc-1", { marker: null, page_size: 25 }));
+    const picker = screen.getByRole("region", { name: "Add members" });
+    const membersTable = screen.getByRole("table");
+    expect(picker.compareDocumentPosition(membersTable) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(screen.queryByRole("checkbox", { name: /alice/ })).not.toBeInTheDocument();
     const bob = await screen.findByRole("checkbox", { name: /bob/ });
     expect(screen.queryByRole("combobox", { name: "Page size" })).not.toBeInTheDocument();

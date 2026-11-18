@@ -98,17 +98,6 @@ export default function AdminSimpleIdAssociationsPanel({
           onAction={() => state.setShowPanel((current) => !current)}
         />
       ) : null}
-      <DataTableShell
-        columns={columns}
-        rows={state.selected}
-        rowKey={(id) => id}
-        status={state.selected.length ? "ready" : "empty"}
-        loadingMessage={loadingMessage}
-        errorMessage={emptyMessage}
-        emptyMessage={emptyMessage}
-        containerClassName={adminAssociationTableContainerClass}
-        responsiveCards
-      />
       {state.showPanel ? (
         <AdminAssociationPickerPanel
           title={pickerTitle}
@@ -141,6 +130,17 @@ export default function AdminSimpleIdAssociationsPanel({
           />
         </AdminAssociationPickerPanel>
       ) : null}
+      <DataTableShell
+        columns={columns}
+        rows={state.selected}
+        rowKey={(id) => id}
+        status={state.selected.length ? "ready" : "empty"}
+        loadingMessage={loadingMessage}
+        errorMessage={emptyMessage}
+        emptyMessage={emptyMessage}
+        containerClassName={adminAssociationTableContainerClass}
+        responsiveCards
+      />
     </div>
   );
 }

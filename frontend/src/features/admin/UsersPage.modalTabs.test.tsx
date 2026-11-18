@@ -958,6 +958,9 @@ describe("UsersPage modal tabs", () => {
     const portalRoleSelect = await screen.findByRole<HTMLSelectElement>("combobox", {
       name: "Portal role for acc-1",
     });
+    const resourceTable = screen.getByRole("columnheader", { name: "Resource" }).closest("table");
+    if (!resourceTable) throw new Error("resource access table not found");
+    expect(managerRoleSelect.compareDocumentPosition(resourceTable) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(Array.from(managerRoleSelect.options).map((option) => option.value)).toEqual([
       "",
       "account_administrator",

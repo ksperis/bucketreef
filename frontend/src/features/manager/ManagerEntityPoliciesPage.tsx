@@ -369,17 +369,6 @@ export default function ManagerEntityPoliciesPage({
                 {text("Attach policies")}
               </ListActionButton>
             </div>
-            <DataTableShell
-              columns={attachedPolicyColumns}
-              rows={attached}
-              rowKey={(policy) => policy.arn}
-              status={tableStatus}
-              loadingMessage={text("Loading policies...")}
-              errorMessage={text("Unable to load policies.")}
-              emptyMessage={text("No attached policies.")}
-              tableClassName="ui-data-table"
-              responsiveCards
-            />
             {pickerOpen ? (
               <ManagerIamAssociationPicker
                 title={text("Attach policies")}
@@ -408,6 +397,17 @@ export default function ManagerEntityPoliciesPage({
                 onSubmit={() => void handleAttach()}
               />
             ) : null}
+            <DataTableShell
+              columns={attachedPolicyColumns}
+              rows={attached}
+              rowKey={(policy) => policy.arn}
+              status={tableStatus}
+              loadingMessage={text("Loading policies...")}
+              errorMessage={text("Unable to load policies.")}
+              emptyMessage={text("No attached policies.")}
+              tableClassName="ui-data-table"
+              responsiveCards
+            />
             <p className="settings-description">{text("Policies must be created first in the Policies tab.")}</p>
           </div>
         </SettingsSection>

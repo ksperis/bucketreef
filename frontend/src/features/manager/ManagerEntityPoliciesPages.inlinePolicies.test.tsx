@@ -191,6 +191,9 @@ describe("manager entity policy pages", () => {
     fireEvent.click(screen.getByRole("button", { name: "Attach policies" }));
 
     const picker = await screen.findByRole("region", { name: "Attach policies" });
+    const managedPoliciesTable = screen.getByText("ExistingPolicy", { selector: "td" }).closest("table");
+    if (!managedPoliciesTable) throw new Error("managed policies table not found");
+    expect(picker.compareDocumentPosition(managedPoliciesTable) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(within(picker).queryByRole("checkbox", { name: /ExistingPolicy/ })).not.toBeInTheDocument();
     expect(within(picker).getByRole("checkbox", { name: /AvailablePolicy/ })).toBeInTheDocument();
     expect(within(picker).queryByRole("combobox", { name: "Page size" })).not.toBeInTheDocument();

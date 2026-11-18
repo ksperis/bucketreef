@@ -193,16 +193,6 @@ export default function ManagerUserGroupsPage() {
           </ListActionButton>
         )}
       >
-        <DataTableShell
-          columns={columns}
-          rows={groups}
-          rowKey={(group) => group.name}
-          status={tableStatus}
-          loadingMessage={text("Loading groups...")}
-          errorMessage={text("Unable to load groups.")}
-          emptyMessage={text("This user is not a member of any group.")}
-          responsiveCards
-        />
         {pickerOpen ? (
           <ManagerIamAssociationPicker
             title={text("Add to groups")}
@@ -231,6 +221,16 @@ export default function ManagerUserGroupsPage() {
             onSubmit={() => void handleAdd()}
           />
         ) : null}
+        <DataTableShell
+          columns={columns}
+          rows={groups}
+          rowKey={(group) => group.name}
+          status={tableStatus}
+          loadingMessage={text("Loading groups...")}
+          errorMessage={text("Unable to load groups.")}
+          emptyMessage={text("This user is not a member of any group.")}
+          responsiveCards
+        />
       </ListPageSection>
       {membershipConfirmation.confirmationDialog}
     </div>

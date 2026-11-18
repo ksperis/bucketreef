@@ -194,17 +194,6 @@ export default function AdminAccountAssociationsPanel({
 
   return (
     <div className="space-y-3">
-      <DataTableShell
-        columns={columns}
-        rows={accounts.selected}
-        rowKey={(entry) => entry.id}
-        status={accounts.selected.length ? "ready" : "empty"}
-        loadingMessage={labels.loading}
-        errorMessage={labels.empty}
-        emptyMessage={labels.empty}
-        containerClassName={adminAssociationTableContainerClass}
-        responsiveCards
-      />
       {accounts.showPanel ? (
         <AdminAssociationPickerPanel
           title={labels.pickerTitle}
@@ -254,6 +243,17 @@ export default function AdminAccountAssociationsPanel({
           />
         </AdminAssociationPickerPanel>
       ) : null}
+      <DataTableShell
+        columns={columns}
+        rows={accounts.selected}
+        rowKey={(entry) => entry.id}
+        status={accounts.selected.length ? "ready" : "empty"}
+        loadingMessage={labels.loading}
+        errorMessage={labels.empty}
+        emptyMessage={labels.empty}
+        containerClassName={adminAssociationTableContainerClass}
+        responsiveCards
+      />
     </div>
   );
 }
