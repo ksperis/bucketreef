@@ -1,8 +1,12 @@
 /* Copyright (c) 2026 Laurent Barbe; Licensed under the Apache License, Version 2.0 */
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
-import { BrowserAccessSection, ManagerToolAccessSection } from "./AdminAccessSections";
+import {
+  AdminAccessToggleSection,
+  BrowserAccessSection,
+  ManagerToolAccessSection,
+} from "./AdminAccessSections";
 import { LanguageProvider, useLanguage } from "../../components/language";
 import {
   buildManagerToolDefinitions,
@@ -110,6 +114,67 @@ describe("additive Manager grants", () => {
     const grant = screen.getByRole("switch", { name: "Bucket compare" });
     expect(grant).not.toBeChecked();
     expect(grant).toBeDisabled();
+  });
+});
+
+describe("effective access presentation", () => {
+  it("shows Direct, Group, No grant, and Role required consistently for generic access rows", () => {
+    render(
+      <AdminAccessToggleSection
+        title="Platform access"
+        description="Access"
+        items={[
+          {
+            title: "Direct access",
+            checked: true,
+            disabled: true,
+            effectiveAccessPresentation: "detailed",
+            onChange: vi.fn(),
+            ariaLabel: "Direct access",
+          },
+          {
+            title: "Group access",
+            checked: false,
+            inherited: true,
+            effectiveAccessPresentation: "detailed",
+            onChange: vi.fn(),
+            ariaLabel: "Group access",
+          },
+          {
+            title: "No access",
+            checked: false,
+            effectiveAccessPresentation: "detailed",
+            onChange: vi.fn(),
+            ariaLabel: "No access",
+          },
+          {
+            title: "Role blocked",
+            checked: false,
+            eligible: false,
+            effectiveAccessPresentation: "detailed",
+            onChange: vi.fn(),
+            ariaLabel: "Role blocked",
+          },
+        ]}
+      />,
+    );
+
+    const directRow = screen.getByText("Direct access").closest(".settings-item-compact") as HTMLElement;
+    expect(within(directRow).getByText("Enabled")).toBeVisible();
+    expect(within(directRow).getByText("Direct")).toBeVisible();
+    expect(within(directRow).getByRole("switch", { name: "Direct access" })).toBeDisabled();
+
+    const groupRow = screen.getByText("Group access").closest(".settings-item-compact") as HTMLElement;
+    expect(within(groupRow).getByText("Enabled")).toBeVisible();
+    expect(within(groupRow).getByText("Group")).toBeVisible();
+
+    const noGrantRow = screen.getByText("No access").closest(".settings-item-compact") as HTMLElement;
+    expect(within(noGrantRow).getByText("Disabled")).toBeVisible();
+    expect(within(noGrantRow).getByText("No grant")).toBeVisible();
+
+    const roleRow = screen.getByText("Role blocked").closest(".settings-item-compact") as HTMLElement;
+    expect(within(roleRow).getByText("Unavailable")).toBeVisible();
+    expect(within(roleRow).getByText("Role required")).toBeVisible();
   });
 });
 

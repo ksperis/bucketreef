@@ -79,9 +79,29 @@ def effective_user_access_from_resolved(
         can_create_manual_private_connections=resolved.can_create_manual_private_connections,
         can_provision_managed_private_connections=resolved.can_provision_managed_private_connections,
         allow_multisite_endpoint_switching=resolved.allow_multisite_endpoint_switching,
+        group_can_access_ceph_admin=_has_group_feature_source(
+            resolved,
+            "ceph_admin",
+        ),
+        group_can_access_storage_ops=_has_group_feature_source(
+            resolved,
+            "storage_ops",
+        ),
+        group_can_create_manual_private_connections=_has_group_feature_source(
+            resolved,
+            "private_connection_create",
+        ),
         group_can_provision_managed_private_connections=_has_group_feature_source(
             resolved,
             "managed_private_connection_provision",
+        ),
+        group_allow_multisite_endpoint_switching=_has_group_feature_source(
+            resolved,
+            "multisite_endpoint_switching",
+        ),
+        group_browser_advanced_features_enabled=_has_group_feature_source(
+            resolved,
+            "browser_advanced_features",
         ),
         has_owned_private_connections=resolved.has_owned_private_connections,
         manager_tool_access=resolved.manager_tool_access,

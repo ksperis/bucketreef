@@ -103,7 +103,12 @@ function effectiveAccess(
     can_create_manual_private_connections: false,
     can_provision_managed_private_connections: false,
     allow_multisite_endpoint_switching: false,
+    group_can_access_ceph_admin: false,
+    group_can_access_storage_ops: false,
+    group_can_create_manual_private_connections: false,
     group_can_provision_managed_private_connections: false,
+    group_allow_multisite_endpoint_switching: false,
+    group_browser_advanced_features_enabled: false,
     has_owned_private_connections: false,
     manager_tool_access: {
       bucket_compare: false,

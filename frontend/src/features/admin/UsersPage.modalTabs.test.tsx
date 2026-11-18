@@ -1269,7 +1269,9 @@ describe("UsersPage modal tabs", () => {
     expect(screen.queryByRole("tab", { name: "Connections" })).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: "Manager" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
-    expect(screen.getByRole("heading", { name: "Manager" })).toBeInTheDocument();
+    const createManagerSection = screen.getByRole("region", { name: "Manager" });
+    expect(within(createManagerSection).getByRole("heading", { name: "Manager" })).toBeInTheDocument();
+    expect(within(createManagerSection).queryByText("Direct grant")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Connections" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
 
@@ -1370,6 +1372,80 @@ describe("UsersPage modal tabs", () => {
     expect(within(compareRow).queryByText("Group")).not.toBeInTheDocument();
   });
 
+  it("shows group provenance for every non-Manager Platform access permission", async () => {
+    listUsersMock.mockResolvedValue({
+      items: [
+        {
+          id: 10,
+          email: "group.platform.access@example.com",
+          role: "ui_admin",
+          effective_access: {
+            group_can_access_ceph_admin: true,
+            group_can_access_storage_ops: true,
+            group_can_create_manual_private_connections: true,
+            group_allow_multisite_endpoint_switching: true,
+            group_browser_advanced_features_enabled: true,
+          },
+          account_links: [],
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
+
+    for (const title of [
+      "Ceph Admin access",
+      "Storage Ops access",
+      "Switch RGW multisite endpoints",
+      "Technical S3 tools",
+      "Create manual private connections",
+    ]) {
+      const row = screen.getByText(title).closest(".settings-item-compact") as HTMLElement;
+      expect(within(row).getByText("Enabled")).toBeInTheDocument();
+      expect(within(row).getByText("Group")).toBeInTheDocument();
+      expect(within(row).getByText("Direct grant")).toBeInTheDocument();
+    }
+  });
+
+  it("reveals a group grant when a direct Storage Ops grant is turned off", async () => {
+    listUsersMock.mockResolvedValue({
+      items: [
+        {
+          id: 10,
+          email: "direct-and-group@example.com",
+          role: "ui_admin",
+          can_access_storage_ops: true,
+          effective_access: {
+            can_access_storage_ops: true,
+            group_can_access_storage_ops: true,
+          },
+          account_links: [],
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      has_next: false,
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.click(screen.getByRole("tab", { name: "Platform access" }));
+
+    const row = screen.getByText("Storage Ops access").closest(".settings-item-compact") as HTMLElement;
+    expect(within(row).getByText("Direct")).toBeInTheDocument();
+
+    fireEvent.click(within(row).getByRole("switch", { name: "Allow access to /storage-ops" }));
+
+    expect(within(row).getByText("Group")).toBeInTheDocument();
+  });
+
   it("preserves a managed private provisioning grant while the feature is disabled globally", async () => {
     generalSettingsState.manager_feature_policies.managed_private_connection_provisioning = "disabled";
     listUsersMock.mockResolvedValue({
@@ -1468,7 +1544,9 @@ describe("UsersPage modal tabs", () => {
     expect(screen.getByText("Mass management workspaces")).toBeInTheDocument();
     expect(screen.getByText("Storage Ops access")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Storage Ops access: information" }));
-    expect(screen.getByRole("tooltip")).toHaveTextContent("Grant direct /storage-ops access");
+    expect(screen.getByRole("tooltip")).toHaveTextContent(
+      "Allow access to /storage-ops for User, Admin, and Superadmin UI roles.",
+    );
     expect(screen.queryByText(/Superadmin role updates require Superadmin/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("switch", { name: "Allow access to /storage-ops" }));
     fireEvent.click(screen.getByRole("button", { name: "Create" }));

@@ -136,7 +136,12 @@ function demoEffectiveAccess(state: DemoState, user: DemoUser): EffectiveUserAcc
   const groups = demoGroupsForUser(state, user.id);
   const roleSupportsTools = user.role !== "ui_none";
   const tools = managerToolAccess(user, groups);
+  const groupCephAdmin = groups.some(group => group.can_access_ceph_admin);
+  const groupStorageOps = groups.some(group => group.can_access_storage_ops);
+  const groupManualConnections = groups.some(group => group.can_create_manual_private_connections);
   const groupManagedProvisioning = groups.some(group => group.can_provision_managed_private_connections);
+  const groupMultisiteSwitching = groups.some(group => group.allow_multisite_endpoint_switching);
+  const groupBrowserAdvanced = groups.some(group => group.browser_advanced_features_enabled);
   const managedProvisioningPolicy = settings.manager.feature_policies.managed_private_connection_provisioning;
   const managedProvisioningEnabled = roleSupportsTools
     && managedProvisioningPolicy !== "disabled"
@@ -152,7 +157,13 @@ function demoEffectiveAccess(state: DemoState, user: DemoUser): EffectiveUserAcc
     can_provision_managed_private_connections: managedProvisioningEnabled,
     allow_multisite_endpoint_switching: roleSupportsTools
       && hasFeatureGrant(user, groups, "allow_multisite_endpoint_switching"),
+    group_can_access_ceph_admin:
+      (user.role === "ui_admin" || user.role === "ui_superadmin") && groupCephAdmin,
+    group_can_access_storage_ops: roleSupportsTools && groupStorageOps,
+    group_can_create_manual_private_connections: roleSupportsTools && groupManualConnections,
     group_can_provision_managed_private_connections: managedProvisioningEnabled && groupManagedProvisioning,
+    group_allow_multisite_endpoint_switching: roleSupportsTools && groupMultisiteSwitching,
+    group_browser_advanced_features_enabled: groupBrowserAdvanced,
     has_owned_private_connections: state.connections.some(connection =>
       !connection.is_shared && connection.created_by_user_id === user.id),
     manager_tool_access: tools.effective,

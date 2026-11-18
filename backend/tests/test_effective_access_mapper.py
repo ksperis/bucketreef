@@ -43,8 +43,22 @@ def test_effective_access_mapper_preserves_group_provenance_and_name_fallbacks()
         ),
         browser_advanced_features_enabled=True,
         feature_sources={
+            "ceph_admin": (
+                EffectiveAccessSource(kind="direct"),
+                EffectiveAccessSource(kind="group", group_id=4, group_name="Operators"),
+            ),
+            "storage_ops": (
+                EffectiveAccessSource(kind="group", group_id=4, group_name="Operators"),
+            ),
+            "private_connection_create": (EffectiveAccessSource(kind="direct"),),
             "managed_private_connection_provision": (
                 EffectiveAccessSource(kind="platform"),
+                EffectiveAccessSource(kind="group", group_id=4, group_name="Operators"),
+            ),
+            "multisite_endpoint_switching": (
+                EffectiveAccessSource(kind="group", group_id=4, group_name="Operators"),
+            ),
+            "browser_advanced_features": (
                 EffectiveAccessSource(kind="group", group_id=4, group_name="Operators"),
             ),
             "manager_bucket_compare": (EffectiveAccessSource(kind="direct"),),
@@ -60,7 +74,12 @@ def test_effective_access_mapper_preserves_group_provenance_and_name_fallbacks()
         shared_connection_names={11: "shared", 12: ""},
     )
 
+    assert mapped.group_can_access_ceph_admin is True
+    assert mapped.group_can_access_storage_ops is True
+    assert mapped.group_can_create_manual_private_connections is False
     assert mapped.group_can_provision_managed_private_connections is True
+    assert mapped.group_allow_multisite_endpoint_switching is True
+    assert mapped.group_browser_advanced_features_enabled is True
     assert mapped.group_manager_tool_access == ManagerToolAccess(bucket_migration=True)
     assert mapped.account_links[0].model_dump() == {
         "manager_role": "account_administrator",

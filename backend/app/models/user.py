@@ -217,7 +217,12 @@ class UserSelfUpdate(UserProfilePreferencesUpdate):
 
 
 class EffectiveUserAccess(UiPrincipalAccessFields, ApiModel):
+    group_can_access_ceph_admin: bool
+    group_can_access_storage_ops: bool
+    group_can_create_manual_private_connections: bool
     group_can_provision_managed_private_connections: bool
+    group_allow_multisite_endpoint_switching: bool
+    group_browser_advanced_features_enabled: bool
     has_owned_private_connections: bool
     group_manager_tool_access: ManagerToolAccess
     account_links: list[EffectiveAccountMembership]

@@ -657,7 +657,11 @@ def test_ui_group_effective_access_is_inherited_without_overwriting_direct_user_
     assert out.effective_access.can_create_manual_private_connections is True
     assert out.effective_access.can_provision_managed_private_connections is True
     assert out.effective_access.allow_multisite_endpoint_switching is True
+    assert out.effective_access.group_can_access_storage_ops is True
+    assert out.effective_access.group_can_create_manual_private_connections is True
     assert out.effective_access.group_can_provision_managed_private_connections is True
+    assert out.effective_access.group_allow_multisite_endpoint_switching is True
+    assert out.effective_access.group_browser_advanced_features_enabled is True
     assert out.effective_access.manager_tool_access.bucket_compare is True
     assert out.effective_access.manager_tool_access.bucket_migration is True
     assert out.effective_access.manager_tool_access.bucket_purge is True
@@ -760,6 +764,10 @@ def test_effective_ceph_admin_requires_user_admin_role(client: TestClient, db_se
     service = EffectiveAccessService(db_session)
     assert service.resolve_user(ui_user).can_access_ceph_admin is False
     assert service.resolve_user(ui_admin).can_access_ceph_admin is True
+    ui_user_out = UserOutputService(db_session).to_out(ui_user)
+    ui_admin_out = UserOutputService(db_session).to_out(ui_admin)
+    assert ui_user_out.effective_access.group_can_access_ceph_admin is False
+    assert ui_admin_out.effective_access.group_can_access_ceph_admin is True
 
     with_dependencies = dependencies.get_current_ceph_admin(user=ui_admin, db=db_session)
     assert with_dependencies.id == ui_admin.id

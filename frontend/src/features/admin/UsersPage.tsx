@@ -918,6 +918,7 @@ export default function UsersPage() {
             {createModalTab === "access" && (
               <AdminUserPlatformAccessPanel
                 value={form}
+                supportsCephAdmin={createTargetSupportsCephAdmin}
                 canGrantCephAdmin={createCanGrantCephAdmin}
                 canGrantStorageOps={createCanGrantStorageOps}
                 supportsManagerTools={createTargetSupportsManagerTools}
@@ -1081,21 +1082,12 @@ export default function UsersPage() {
                     editForm.browser_advanced_features_enabled ??
                     editingUser.browser_advanced_features_enabled,
                 }}
+                supportsCephAdmin={editTargetSupportsCephAdmin}
                 canGrantCephAdmin={editCanGrantCephAdmin}
                 canGrantStorageOps={editCanGrantStorageOps}
                 supportsManagerTools={editTargetSupportsManagerTools}
                 managerFeaturePolicies={generalSettings.manager_feature_policies}
-                inheritedManagerToolAccess={
-                  editingUser.effective_access.group_manager_tool_access
-                }
-                inheritedManagedProvisioning={Boolean(
-                  editingUser.effective_access
-                    .group_can_provision_managed_private_connections,
-                )}
-                inheritedMultisiteSwitching={Boolean(
-                  editingUser.effective_access.allow_multisite_endpoint_switching
-                  && !editingUser.allow_multisite_endpoint_switching
-                )}
+                effectiveAccess={editingUser.effective_access}
                 text={text}
                 onChange={(patch) =>
                   setEditForm((current) => ({ ...current, ...patch }))

@@ -18,12 +18,14 @@ type WorkspaceAccessToggle = {
   checked: boolean;
   disabled?: boolean;
   blocked?: boolean;
+  eligible?: boolean;
   title: string;
   description?: string;
   ariaLabel: string;
   onChange: (value: boolean) => void;
   platformDefault?: boolean;
   inherited?: boolean;
+  effectiveAccessPresentation?: "detailed" | "exceptions-only" | "none";
   badge?: {
     visible?: boolean;
     label: string;
@@ -48,26 +50,78 @@ export function AdminAccessToggleSection({
   description: string;
   items: WorkspaceAccessToggle[];
 }) {
+  const { text: adminText } = useAdminI18n();
   return (
     <SettingsSection title={title} description={description} presentation="compact">
       {items.map((item) => {
         const disabled = Boolean(item.disabled || (item.blocked && !item.checked));
+        const presentation = item.effectiveAccessPresentation;
+        const effective: WorkspaceAccessToggle["effective"] = item.effective ?? (() => {
+          if (!presentation || presentation === "none") return undefined;
+          if (item.blocked) {
+            return {
+              state: "unavailable" as const,
+              stateLabel: adminText("Unavailable"),
+              sourceLabel: adminText("Platform"),
+              localLabel: presentation === "detailed" ? adminText("Direct grant") : undefined,
+            };
+          }
+          if (item.eligible === false) {
+            return {
+              state: "unavailable" as const,
+              stateLabel: adminText("Unavailable"),
+              sourceLabel: adminText("Role required"),
+              localLabel: presentation === "detailed" ? adminText("Direct grant") : undefined,
+            };
+          }
+          if (item.platformDefault) {
+            return {
+              state: "enabled" as const,
+              stateLabel: adminText("Enabled"),
+              sourceLabel: adminText("Platform"),
+              localLabel: presentation === "detailed" ? adminText("Direct grant") : undefined,
+            };
+          }
+          if (presentation === "exceptions-only") return undefined;
+          if (item.checked) {
+            return {
+              state: "enabled" as const,
+              stateLabel: adminText("Enabled"),
+              sourceLabel: adminText("Direct"),
+              localLabel: adminText("Direct grant"),
+            };
+          }
+          if (item.inherited) {
+            return {
+              state: "enabled" as const,
+              stateLabel: adminText("Enabled"),
+              sourceLabel: adminText("Group"),
+              localLabel: adminText("Direct grant"),
+            };
+          }
+          return {
+            state: "disabled" as const,
+            stateLabel: adminText("Disabled"),
+            sourceLabel: adminText("No grant"),
+            localLabel: adminText("Direct grant"),
+          };
+        })();
         return (
           <SettingsItem
             key={item.ariaLabel}
             title={item.title}
             help={item.description}
             compact
-            className={item.effective ? "settings-effective-row" : undefined}
+            className={effective ? "settings-effective-row" : undefined}
             action={
-              item.effective ? (
+              effective ? (
                 <SettingsEffectiveAction
-                  state={item.effective.state}
-                  stateLabel={item.effective.stateLabel}
-                  sourceLabel={item.effective.sourceLabel}
-                  localLabel={item.effective.localLabel}
-                  constraintLabel={item.effective.constraintLabel}
-                  savedLabel={item.effective.savedLabel}
+                  state={effective.state}
+                  stateLabel={effective.stateLabel}
+                  sourceLabel={effective.sourceLabel}
+                  localLabel={effective.localLabel}
+                  constraintLabel={effective.constraintLabel}
+                  savedLabel={effective.savedLabel}
                 >
                   <SettingsSwitch
                     checked={item.checked}
@@ -116,10 +170,14 @@ export function BrowserAccessSection({
   checked,
   onChange,
   description = "Configure Browser features for this admin subject.",
+  inherited = false,
+  effectiveAccessPresentation,
 }: {
   checked: boolean;
   onChange: (value: boolean) => void;
   description?: string;
+  inherited?: boolean;
+  effectiveAccessPresentation?: "detailed" | "exceptions-only" | "none";
 }) {
   const { text: adminText } = useAdminI18n();
   return (
@@ -130,6 +188,8 @@ export function BrowserAccessSection({
         title: adminText("Technical S3 tools"),
         description: adminText("Adds versions, metadata, batch operations, and bucket maintenance tools to /browser. Display density (rows and action toolbar) and optional panels remain personal choices for every Browser user."),
         checked,
+        inherited,
+        effectiveAccessPresentation,
         onChange,
         ariaLabel: adminText("Enable technical S3 tools"),
       }]}
@@ -158,109 +218,37 @@ export function ManagerToolAccessSection({
   additionalItems?: WorkspaceAccessToggle[];
   eligible?: boolean;
   inheritedAccess?: ManagerToolAccess | null;
-  effectiveAccessPresentation?: "detailed" | "exceptions-only";
+  effectiveAccessPresentation?: "detailed" | "exceptions-only" | "none";
 }) {
   const { text: adminText } = useAdminI18n();
   const normalizedAccess = normalizeManagerToolAccess(access);
   const sectionDescription = `${description} ${adminText("Grants are additive with platform and group grants; removing one source does not revoke another. Eligible UI roles and storage access are still required.")}`;
-  const effectiveGrant = ({
-    direct,
-    platformDefault,
-    inherited,
-    blocked,
-  }: {
-    direct: boolean;
-    platformDefault: boolean;
-    inherited: boolean;
-    blocked: boolean;
-  }): WorkspaceAccessToggle["effective"] => {
-    if (blocked) {
-      return {
-        state: "unavailable",
-        stateLabel: adminText("Unavailable"),
-        sourceLabel: adminText("Platform"),
-        localLabel:
-          effectiveAccessPresentation === "detailed" ? adminText("Direct grant") : undefined,
-      };
-    }
-    if (!eligible) {
-      return {
-        state: "unavailable",
-        stateLabel: adminText("Unavailable"),
-        sourceLabel: adminText("Role required"),
-        localLabel:
-          effectiveAccessPresentation === "detailed" ? adminText("Direct grant") : undefined,
-      };
-    }
-    if (platformDefault) {
-      return {
-        state: "enabled",
-        stateLabel: adminText("Enabled"),
-        sourceLabel: adminText("Platform"),
-        localLabel:
-          effectiveAccessPresentation === "detailed" ? adminText("Direct grant") : undefined,
-      };
-    }
-    if (effectiveAccessPresentation === "exceptions-only") {
-      return undefined;
-    }
-    if (direct) {
-      return {
-        state: "enabled",
-        stateLabel: adminText("Enabled"),
-        sourceLabel: adminText("Direct"),
-        localLabel: adminText("Direct grant"),
-      };
-    }
-    if (inherited) {
-      return {
-        state: "enabled",
-        stateLabel: adminText("Enabled"),
-        sourceLabel: adminText("Group"),
-        localLabel: adminText("Direct grant"),
-      };
-    }
-    return {
-      state: "disabled",
-      stateLabel: adminText("Disabled"),
-      sourceLabel: adminText("No grant"),
-      localLabel: adminText("Direct grant"),
-    };
-  };
   return (
     <AdminAccessToggleSection
       title={title}
       description={sectionDescription}
       items={[
         ...additionalItems.map((item) => {
-          const direct = Boolean(item.checked);
-          const blocked = Boolean(item.blocked);
           return {
             ...item,
-            effective: effectiveGrant({
-              direct,
-              platformDefault: Boolean(item.platformDefault),
-              inherited: Boolean(item.inherited) && !direct,
-              blocked,
-            }),
+            eligible,
+            effectiveAccessPresentation,
           };
         }),
         ...tools.map<WorkspaceAccessToggle>((tool) => {
-          const direct = eligible && Boolean(normalizedAccess[tool.key]);
+          const direct = Boolean(normalizedAccess[tool.key]);
           const blocked = !tool.enabled;
           return {
             title: adminText(tool.title),
             checked: direct,
             blocked,
+            eligible,
+            effectiveAccessPresentation,
             disabled: !eligible || Boolean(tool.enabled && isToolDisabled?.(tool)),
             onChange: (value) => onChange(tool.key, value),
             ariaLabel: adminText(tool.title),
-            effective: effectiveGrant({
-              direct,
-              platformDefault: tool.platformDefault,
-              inherited: Boolean(inheritedAccess?.[tool.key]) && !direct,
-              blocked,
-            }),
+            platformDefault: tool.platformDefault,
+            inherited: Boolean(inheritedAccess?.[tool.key]),
           };
         }),
       ]}

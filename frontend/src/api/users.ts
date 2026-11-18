@@ -78,7 +78,12 @@ export type UserAvatarDescriptor = {
 };
 
 export type EffectiveUserAccess = PlatformAccessFields & {
+  group_can_access_ceph_admin: boolean;
+  group_can_access_storage_ops: boolean;
+  group_can_create_manual_private_connections: boolean;
   group_can_provision_managed_private_connections: boolean;
+  group_allow_multisite_endpoint_switching: boolean;
+  group_browser_advanced_features_enabled: boolean;
   has_owned_private_connections: boolean;
   group_manager_tool_access: ManagerToolAccess;
   account_links: EffectiveAccountMembership[];

@@ -1,7 +1,7 @@
 /* Copyright (c) 2026 Laurent Barbe. Licensed under the Apache License, Version 2.0. */
 import type { ManagerFeaturePolicies } from "../../api/appSettings";
 import { isFeaturePolicyAvailable } from "../../api/featurePolicies";
-import type { ManagerToolAccess, PlatformAccessFields } from "../../api/users";
+import type { EffectiveUserAccess, PlatformAccessFields } from "../../api/users";
 import PageBanner from "../../components/PageBanner";
 import {
   AdminAccessToggleSection,
@@ -19,26 +19,24 @@ type PlatformAccessValue = Partial<PlatformAccessFields>;
 
 type AdminUserPlatformAccessPanelProps = {
   value: PlatformAccessValue;
+  supportsCephAdmin: boolean;
   canGrantCephAdmin: boolean;
   canGrantStorageOps: boolean;
   supportsManagerTools: boolean;
   managerFeaturePolicies: ManagerFeaturePolicies;
-  inheritedManagerToolAccess?: ManagerToolAccess | null;
-  inheritedManagedProvisioning?: boolean;
-  inheritedMultisiteSwitching?: boolean;
+  effectiveAccess?: EffectiveUserAccess | null;
   text: UsersText;
   onChange: (patch: PlatformAccessValue) => void;
 };
 
 export default function AdminUserPlatformAccessPanel({
   value,
+  supportsCephAdmin,
   canGrantCephAdmin,
   canGrantStorageOps,
   supportsManagerTools,
   managerFeaturePolicies,
-  inheritedManagerToolAccess,
-  inheritedManagedProvisioning = false,
-  inheritedMultisiteSwitching = false,
+  effectiveAccess,
   text,
   onChange,
 }: AdminUserPlatformAccessPanelProps) {
@@ -47,6 +45,7 @@ export default function AdminUserPlatformAccessPanel({
   });
   const managedProvisioningPolicy =
     managerFeaturePolicies.managed_private_connection_provisioning;
+  const effectiveAccessPresentation = effectiveAccess ? "detailed" as const : "none" as const;
 
   return (
     <>
@@ -55,16 +54,22 @@ export default function AdminUserPlatformAccessPanel({
         cephAdmin={{
           title: text("cephAdminAccess"),
           description: text("cephAdminAccessDescription"),
-          checked: canGrantCephAdmin && Boolean(value.can_access_ceph_admin),
+          checked: supportsCephAdmin && Boolean(value.can_access_ceph_admin),
           disabled: !canGrantCephAdmin,
+          eligible: supportsCephAdmin,
+          inherited: Boolean(effectiveAccess?.group_can_access_ceph_admin),
+          effectiveAccessPresentation,
           onChange: (enabled) => onChange({ can_access_ceph_admin: enabled }),
           ariaLabel: text("allowCephAdmin"),
         }}
         storageOps={{
           title: text("storageOpsAccess"),
           description: text("storageOpsAccessDescription"),
-          checked: canGrantStorageOps && Boolean(value.can_access_storage_ops),
+          checked: supportsManagerTools && Boolean(value.can_access_storage_ops),
           disabled: !canGrantStorageOps,
+          eligible: supportsManagerTools,
+          inherited: Boolean(effectiveAccess?.group_can_access_storage_ops),
+          effectiveAccessPresentation,
           onChange: (enabled) => onChange({ can_access_storage_ops: enabled }),
           ariaLabel: text("allowStorageOps"),
         }}
@@ -75,7 +80,8 @@ export default function AdminUserPlatformAccessPanel({
 
       <ManagerToolAccessSection
         eligible={supportsManagerTools}
-        inheritedAccess={inheritedManagerToolAccess}
+        inheritedAccess={effectiveAccess?.group_manager_tool_access}
+        effectiveAccessPresentation={effectiveAccessPresentation}
         title={text("manager")}
         additionalItems={[
           {
@@ -85,7 +91,9 @@ export default function AdminUserPlatformAccessPanel({
               supportsManagerTools &&
               Boolean(value.can_provision_managed_private_connections),
             platformDefault: managedProvisioningPolicy === "default_on",
-            inherited: inheritedManagedProvisioning,
+            inherited: Boolean(
+              effectiveAccess?.group_can_provision_managed_private_connections,
+            ),
             blocked: !isFeaturePolicyAvailable(managedProvisioningPolicy),
             disabled: !supportsManagerTools,
             onChange: (enabled) =>
@@ -114,7 +122,9 @@ export default function AdminUserPlatformAccessPanel({
             title: text("switchRgwMultisiteEndpoints"),
             description: text("switchRgwMultisiteEndpointsDescription"),
             checked: supportsManagerTools && Boolean(value.allow_multisite_endpoint_switching),
-            inherited: inheritedMultisiteSwitching,
+            inherited: Boolean(effectiveAccess?.group_allow_multisite_endpoint_switching),
+            eligible: supportsManagerTools,
+            effectiveAccessPresentation,
             disabled: !supportsManagerTools,
             onChange: (enabled) => onChange({ allow_multisite_endpoint_switching: enabled }),
             ariaLabel: text("allowRgwMultisiteEndpointSwitching"),
@@ -124,6 +134,8 @@ export default function AdminUserPlatformAccessPanel({
       <BrowserAccessSection
         description={text("browserOptions")}
         checked={Boolean(value.browser_advanced_features_enabled)}
+        inherited={Boolean(effectiveAccess?.group_browser_advanced_features_enabled)}
+        effectiveAccessPresentation={effectiveAccessPresentation}
         onChange={(enabled) =>
           onChange({ browser_advanced_features_enabled: enabled })
         }
@@ -138,6 +150,11 @@ export default function AdminUserPlatformAccessPanel({
             checked:
               supportsManagerTools &&
               Boolean(value.can_create_manual_private_connections),
+            inherited: Boolean(
+              effectiveAccess?.group_can_create_manual_private_connections,
+            ),
+            eligible: supportsManagerTools,
+            effectiveAccessPresentation,
             disabled: !supportsManagerTools,
             onChange: (enabled) =>
               onChange({ can_create_manual_private_connections: enabled }),
