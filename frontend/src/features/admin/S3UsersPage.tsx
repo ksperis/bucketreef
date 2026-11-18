@@ -880,7 +880,7 @@ export default function S3UsersPage() {
                     />
                     <div className="sm:col-span-2">
                       <UiTextarea
-                        label={adminText("Description (optional)")}
+                        label={adminText("Description")}
                         rows={3}
                         maxLength={2000}
                         value={editForm.description}

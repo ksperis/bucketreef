@@ -215,7 +215,7 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
             {saved && <UiInlineMessage tone="success" role="status">{adminText("Account settings saved.")}{portalDirty ? adminText(" Portal changes remain unsaved.") : ""}</UiInlineMessage>}
             <div hidden={tab !== "general"}><div className="settings-stack">
               <SettingsSection title={adminText("Account details")} description={adminText("Use the description and administrative tags to make this account easier to find and organize.")} presentation="compact">
-                <UiTextarea label={adminText("Description (optional)")} rows={3} maxLength={2000}
+                <UiTextarea label={adminText("Description")} rows={3} maxLength={2000}
                   value={form.draft.description} disabled={controller.locked}
                   onChange={event => update("description", event.target.value)} />
                 {tags.error && <UiInlineMessage tone="warning">{tags.error}</UiInlineMessage>}

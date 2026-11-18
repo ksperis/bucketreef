@@ -409,7 +409,7 @@ describe("AccountsPage modal tabs", () => {
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
 
-    const description = await screen.findByRole("textbox", { name: "Description (optional)" });
+    const description = await screen.findByRole("textbox", { name: "Description" });
     expect(description).toHaveValue("Existing context");
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
 

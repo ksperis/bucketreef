@@ -332,7 +332,7 @@ describe("S3UsersPage modal tabs", () => {
     await screen.findByText("rgw-user-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 
-    const description = await screen.findByRole("textbox", { name: "Description (optional)" });
+    const description = await screen.findByRole("textbox", { name: "Description" });
     expect(description).toHaveValue("Existing context");
     expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
 
