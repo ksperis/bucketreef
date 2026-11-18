@@ -841,7 +841,7 @@ describe("GroupsPage", () => {
 
     renderPage();
     expect(await screen.findByText("All users")).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Delete" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     const form = await screen.findByRole("form", { name: "Edit UI group" });

@@ -264,16 +264,14 @@ export default function AdminGroupsList({
             <ListActionLink to={buildAccessAuditHref({ groupId: group.id })}>
               {text("reviewAccess")}
             </ListActionLink>
-            {!group.system_key && (
-              <ListActionButton
-                type="button"
-                onClick={() => onDelete(group)}
-                disabled={busyId === group.id}
-                variant="danger"
-              >
-                {busyId === group.id ? text("deleting") : text("delete")}
-              </ListActionButton>
-            )}
+            <ListActionButton
+              type="button"
+              onClick={() => onDelete(group)}
+              disabled={busyId === group.id || Boolean(group.system_key)}
+              variant="danger"
+            >
+              {busyId === group.id ? text("deleting") : text("delete")}
+            </ListActionButton>
           </ListActions>
         ),
       },
