@@ -350,7 +350,11 @@ def manager_resource_states(policies: ManagerFeaturePolicies, resource: S3Accoun
         if resource is None and state.blocked_reason != "platform_disabled":
             state.enabled = False
             state.blocked_reason = "unsupported_context"
-        if state.blocked_reason is None and not availability[feature]:
+        if (
+            feature != "manager_browser_data_access"
+            and state.blocked_reason is None
+            and not availability[feature]
+        ):
             state.enabled = False
             state.blocked_reason = "unsupported_context" if resource is None else "prerequisite_or_permission_required"
         states[feature] = state

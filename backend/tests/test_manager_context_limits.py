@@ -85,6 +85,7 @@ def test_manager_context_keeps_limits_deferred_by_default(db_session, monkeypatc
 
     assert payload.quota_max_size_gb is None
     assert payload.max_buckets is None
+    assert "manager_browser_data_access" in payload.feature_states
 
 
 def test_manager_context_loads_limits_on_explicit_request(db_session, monkeypatch):
