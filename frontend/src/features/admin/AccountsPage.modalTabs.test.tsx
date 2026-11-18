@@ -641,7 +641,7 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.queryByText("Portal manager")).not.toBeInTheDocument();
   });
 
-  it("shows General/Linked UI users tabs and submits updated user_links", async () => {
+  it("shows General/User access tabs and submits updated user_links", async () => {
     portalEnabled = true;
     renderPage();
 
@@ -649,15 +649,14 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
 
     const generalTab = await screen.findByRole("tab", { name: "General" });
-    const usersTab = screen.getByRole("tab", { name: "Linked UI users" });
+    const usersTab = screen.getByRole("tab", { name: "User access" });
 
     const tabLabels = Array.from(generalTab.parentElement?.querySelectorAll("button") ?? []).map((button) =>
       button.textContent?.trim()
     );
     expect(tabLabels).toEqual([
       "General",
-      "Linked UI users",
-      "Linked UI groups",
+      "User access",
       "Settings",
       "Manager features",
       "Portal settings",
@@ -723,9 +722,9 @@ describe("AccountsPage modal tabs", () => {
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
 
-    fireEvent.click(await screen.findByRole("tab", { name: "Linked UI groups" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "User access" }));
 
-    expect(screen.getByText("No linked groups yet.")).toBeInTheDocument();
+    expect(screen.getByText("No user access is linked yet.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add UI groups" }));
     expect(screen.getByRole("searchbox", { name: "Search UI groups" })).toHaveClass("ui-list-control");
     const managerRoleSelect = await screen.findByRole<HTMLSelectElement>("combobox", {
@@ -773,9 +772,9 @@ describe("AccountsPage modal tabs", () => {
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
 
-    fireEvent.click(await screen.findByRole("tab", { name: "Linked UI users" }));
-    expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: "Portal role" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: "User access" }));
+    expect(screen.getByRole("columnheader", { name: "Manager" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Portal" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Access roles" })).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Add UI users" }));
     const userCheckbox = await screen.findByRole("checkbox", { name: "ui7@example.com" });
@@ -793,7 +792,6 @@ describe("AccountsPage modal tabs", () => {
     expect(screen.queryByText("Choose at least one role for this association.")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
-    fireEvent.click(screen.getByRole("tab", { name: "Linked UI groups" }));
     fireEvent.click(screen.getByRole("button", { name: "Add UI groups" }));
     expect(await screen.findByRole("combobox", { name: "Portal role for Research Group" })).toHaveValue(
       "",
@@ -893,10 +891,10 @@ describe("AccountsPage modal tabs", () => {
     );
 
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
-    fireEvent.click(await screen.findByRole("tab", { name: "Linked UI users" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "User access" }));
 
-    expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Manager" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Portal" })).toBeInTheDocument();
     expect(screen.queryByRole("columnheader", { name: "Access roles" })).not.toBeInTheDocument();
 
     const managerRoleSelect = screen.getByRole<HTMLSelectElement>("combobox", {
@@ -972,9 +970,9 @@ describe("AccountsPage modal tabs", () => {
 
     renderPage();
     fireEvent.click((await screen.findAllByRole("button", { name: "Edit" }))[0]);
-    fireEvent.click(await screen.findByRole("tab", { name: "Linked UI users" }));
-    expect(screen.getByRole("columnheader", { name: "Manager role" })).toBeInTheDocument();
-    expect(screen.getByRole("columnheader", { name: /Portal role/ })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: "User access" }));
+    expect(screen.getByRole("columnheader", { name: "Manager" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Portal" })).toBeInTheDocument();
     const managerRoleSelect = screen.getByRole("combobox", {
       name: "Manager role for ui7@example.com",
     });
@@ -1217,7 +1215,7 @@ describe("AccountsPage modal tabs", () => {
 
     await screen.findByText("acc-1");
     fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
-    fireEvent.click(await screen.findByRole("tab", { name: "Linked UI users" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "User access" }));
 
     fireEvent.click(await screen.findByRole("button", { name: "Add UI users" }));
     const userCheckbox = await screen.findByRole("checkbox", { name: "ui7@example.com" });
@@ -1724,7 +1722,7 @@ describe("AccountsPage modal tabs", () => {
     await user.click(await screen.findByRole("button", { name: "Edit" }));
     const quota = await screen.findByLabelText("Object quota");
     await waitFor(() => expect(quota).toBeEnabled());
-    await user.click(screen.getByRole("tab", { name: "Linked UI users" }));
+    await user.click(screen.getByRole("tab", { name: "User access" }));
     await user.click(screen.getByRole("button", { name: "Add UI users" }));
     await screen.findByRole("checkbox", { name: "ui7@example.com" });
     await user.click(screen.getByRole("tab", { name: "General" }));
@@ -1733,7 +1731,7 @@ describe("AccountsPage modal tabs", () => {
     expect(updateS3AccountMock).toHaveBeenCalledOnce();
     expect(quota).toBeDisabled();
     expect(screen.getByRole("textbox", { name: "Add a tag for this account" })).toBeDisabled();
-    expect(screen.getByRole("tab", { name: "Linked UI users" })).toBeDisabled();
+    expect(screen.getByRole("tab", { name: "User access" })).toBeDisabled();
     expect(screen.getByRole("searchbox", { name: "Search UI users", hidden: true })).toBeDisabled();
     expect(screen.getByRole("checkbox", { name: "ui7@example.com", hidden: true })).toBeDisabled();
     expect(screen.getByRole("combobox", { name: "Manager role for ui7@example.com", hidden: true })).toBeDisabled();
@@ -1776,7 +1774,7 @@ describe("AccountsPage modal tabs", () => {
     mock.mockRejectedValueOnce(new Error("Catalogue unavailable"));
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
-    fireEvent.click(await screen.findByRole("tab", { name: `Linked UI ${kind}` }));
+    fireEvent.click(await screen.findByRole("tab", { name: "User access" }));
     fireEvent.click(screen.getByRole("button", { name: `Add UI ${kind}` }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Catalogue unavailable");
     expect(screen.queryByText("No results.")).not.toBeInTheDocument();
@@ -1789,8 +1787,10 @@ describe("AccountsPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Keep editing" }));
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-    expect(await screen.findByRole("alert")).toHaveTextContent(`Add the selected UI ${kind}`);
-    expect(screen.getByRole("tab", { name: `Linked UI ${kind}` })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Add the selected UI principals, or cancel their selection, before saving.",
+    );
+    expect(screen.getByRole("tab", { name: "User access" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("checkbox", { name: label })).toBeChecked();
     expect(updateS3AccountMock).not.toHaveBeenCalled();
     await waitFor(() => expect(screen.getByRole("button", { name: "Add selected" })).toBeEnabled());

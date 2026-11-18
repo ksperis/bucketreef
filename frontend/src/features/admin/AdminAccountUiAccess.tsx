@@ -255,10 +255,10 @@ export default function AdminAccountUiAccess({
       search={catalog.search}
       onSearchChange={catalog.setSearch}
       searchAriaLabel={text(activeKind === "users" ? "Search UI users" : "Search UI groups")}
-      loading={catalog.loading || Boolean(catalog.error)}
-      loadingLabel={catalog.error
-        ? text("The catalogue is unavailable.")
-        : text(activeKind === "users" ? "Loading UI users..." : "Loading UI groups...")}
+      loading={catalog.loading}
+      error={catalog.error}
+      onRetry={catalog.refresh}
+      loadingLabel={text(activeKind === "users" ? "Loading UI users..." : "Loading UI groups...")}
       availableCount={available.length}
       maxVisibleOptions={catalog.pageSize}
       selectedCount={selected.length}

@@ -169,7 +169,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     fireEvent.change(screen.getByLabelText("Endpoint URL"), { target: { value: "invalid-url" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Linked UI groups" }));
+    fireEvent.click(screen.getByRole("tab", { name: "User access" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     const url = screen.getByLabelText("Endpoint URL");
     expect(url).toHaveAccessibleDescription("Enter a valid endpoint URL.");
@@ -275,7 +275,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 
     const generalTab = await screen.findByRole("tab", { name: "General" });
-    const usersTab = screen.getByRole("tab", { name: "Linked UI users" });
+    const usersTab = screen.getByRole("tab", { name: "User access" });
     expect(screen.queryByRole("button", { name: "Tags" })).not.toBeInTheDocument();
     const dialog = getWorkflowPage("Edit connection · connection-1");
     expect(
@@ -370,15 +370,16 @@ describe("S3ConnectionsPage modal tabs", () => {
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 
-    fireEvent.click(await screen.findByRole("tab", { name: "Linked UI groups" }));
-    expect(screen.getByText("No linked groups yet.")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: "User access" }));
+    expect(screen.getByText("u11@example.com")).toBeInTheDocument();
+    expect(screen.queryByText("Storage Operators")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add UI groups" }));
     fireEvent.click(screen.getByRole("checkbox", { name: "Storage Operators" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Linked UI groups" }));
+    fireEvent.click(screen.getByRole("tab", { name: "User access" }));
     expect(screen.getByText("Storage Operators")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
@@ -401,7 +402,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 
-    fireEvent.click(screen.getByRole("tab", { name: "Linked UI users" }));
+    fireEvent.click(screen.getByRole("tab", { name: "User access" }));
     expect(screen.getByRole("button", { name: "Add UI users" })).toBeEnabled();
     const removeButtons = screen.getAllByRole("button", { name: "Remove" });
     removeButtons.forEach((button) => expect(button).toBeEnabled());
@@ -411,7 +412,7 @@ describe("S3ConnectionsPage modal tabs", () => {
 
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
     fireEvent.change(screen.getByLabelText("Name"), { target: { value: "connection-1 updated" } });
-    fireEvent.click(screen.getByRole("tab", { name: "Linked UI users" }));
+    fireEvent.click(screen.getByRole("tab", { name: "User access" }));
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
 
     await waitFor(() => {
@@ -430,7 +431,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     await screen.findByText("connection-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 
-    fireEvent.click(await screen.findByRole("tab", { name: "Linked UI users" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "User access" }));
     fireEvent.click(screen.getByRole("button", { name: "Add UI users" }));
     expect(screen.getByPlaceholderText("Search...")).toBeInTheDocument();
 
@@ -440,7 +441,7 @@ describe("S3ConnectionsPage modal tabs", () => {
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
     await within(getWorkflowPage("Edit connection · connection-1")).findByText("Endpoint");
 
-    fireEvent.click(screen.getByRole("tab", { name: "Linked UI users" }));
+    fireEvent.click(screen.getByRole("tab", { name: "User access" }));
     expect(screen.getByRole("button", { name: "Add UI users" })).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("Search...")).not.toBeInTheDocument();
   });

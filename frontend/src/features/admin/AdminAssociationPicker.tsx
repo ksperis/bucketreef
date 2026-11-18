@@ -21,6 +21,7 @@ import {
 
 import UiButton from "../../components/ui/UiButton";
 import UiCheckboxField from "../../components/ui/UiCheckboxField";
+import UiInlineMessage from "../../components/ui/UiInlineMessage";
 import { cx, uiCardMutedClass, uiMutedTextClass, uiTableContainerClass } from "../../components/ui/styles";
 import {
   AccountAccessRoleValidationMessage,
@@ -388,6 +389,8 @@ type AdminAssociationPickerPanelProps = {
   search: string;
   onSearchChange: (value: string) => void;
   loading: boolean;
+  error?: ReactNode;
+  onRetry?: () => void;
   availableCount: number;
   maxVisibleOptions: number;
   selectedCount: number;
@@ -415,6 +418,8 @@ export function AdminAssociationPickerPanel({
   search,
   onSearchChange,
   loading,
+  error,
+  onRetry,
   availableCount,
   maxVisibleOptions,
   selectedCount,
@@ -437,9 +442,19 @@ export function AdminAssociationPickerPanel({
         search={<ToolbarSearchInput label={searchAriaLabel ?? text("search")} value={search} onChange={onSearchChange} placeholder={text("searchPlaceholder")} />}
       />
       <div className="max-h-48 space-y-1 overflow-y-auto pr-1">
+        {error ? (
+          <UiInlineMessage tone="error" role="alert">
+            {error}
+            {onRetry ? (
+              <UiButton className="ml-2" variant="secondary" size="xs" onClick={onRetry}>
+                {text("retry")}
+              </UiButton>
+            ) : null}
+          </UiInlineMessage>
+        ) : null}
         {loading ? <p className={cx("ui-caption", uiMutedTextClass)}>{loadingLabel}</p> : null}
-        {!loading && availableCount === 0 ? <p className={cx("ui-caption", uiMutedTextClass)}>{resolvedEmptyLabel}</p> : null}
-        {children}
+        {!loading && !error && availableCount === 0 ? <p className={cx("ui-caption", uiMutedTextClass)}>{resolvedEmptyLabel}</p> : null}
+        {!error ? children : null}
         {!pagination && availableCount > maxVisibleOptions ? (
           <p className={cx("ui-caption", uiMutedTextClass)}>
             {text("showingFirstMatches", { count: maxVisibleOptions })}

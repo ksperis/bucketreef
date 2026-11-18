@@ -75,7 +75,7 @@ export function accountQuotaChanged(draft: AdminAccountForm, baseline: AdminAcco
     || draft.quota_max_objects !== baseline.quota_max_objects;
 }
 
-export function accountLimitsChanged(draft: AdminAccountForm, baseline: AdminAccountForm) {
+function accountLimitsChanged(draft: AdminAccountForm, baseline: AdminAccountForm) {
   return ADMIN_ACCOUNT_LIMIT_FIELDS.some(([field]) => draft[field] !== baseline[field]);
 }
 

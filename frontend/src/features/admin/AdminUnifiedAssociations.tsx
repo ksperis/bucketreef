@@ -19,7 +19,7 @@ export type AdminUnifiedAssociationRow = {
   actions: ReactNode;
 };
 
-export type AdminUnifiedAssociationAddAction = {
+type AdminUnifiedAssociationAddAction = {
   key: string;
   label: ReactNode;
   onAction: () => void;

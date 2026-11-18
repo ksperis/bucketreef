@@ -13,6 +13,7 @@ const adminAssociationMessages = {
   portalRole: m("Portal role", "Portal 角色"),
   noResults: m("No results.", "没有结果。"),
   addSelected: m("Add selected", "添加所选项"),
+  retry: m("Retry", "重试"),
   search: m("Search", "搜索"),
   searchPlaceholder: m("Search...", "搜索…"),
   showingFirstMatches: m(

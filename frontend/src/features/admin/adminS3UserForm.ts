@@ -36,7 +36,7 @@ export function emptyAdminS3UserForm() {
   };
 }
 
-export type AdminS3UserForm = ReturnType<typeof emptyAdminS3UserForm>;
+type AdminS3UserForm = ReturnType<typeof emptyAdminS3UserForm>;
 
 function buildS3UserFormDraft<T extends { tags: UiTagDefinition[] }>(form: T) {
   return {
