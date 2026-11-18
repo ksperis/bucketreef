@@ -995,7 +995,7 @@ Compare v0.1.7 → v0.1.8: [GitHub](https://github.com/ksperis/bucketreef/compar
 
 ### Historical tag alignment
 
-The GitLab tag was aligned with GitHub at `39198eb4b6762f9758176b27544032aae0fbfe81` from `8080a847a2e00009810ee3aae5db81dda6982c11`. Existing container images were not rebuilt or republished; this tag alignment does not establish their provenance.
+The GitLab tag was aligned with GitHub at `2d4a5735d753081b2d67c5f290f7d32d6e6a2fd7` from `8080a847a2e00009810ee3aae5db81dda6982c11`. Existing container images were not rebuilt or republished; this tag alignment does not establish their provenance.
 
 ## 0.1.7 {#release-0-1-7}
 

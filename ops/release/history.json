@@ -68,7 +68,7 @@
     },
     {
       "version": "0.1.8",
-      "sha": "39198eb4b6762f9758176b27544032aae0fbfe81",
+      "sha": "2d4a5735d753081b2d67c5f290f7d32d6e6a2fd7",
       "date": "2026-06-16",
       "date_source": "changelog",
       "reconstructed": false,
@@ -77,7 +77,7 @@
     },
     {
       "version": "0.1.9",
-      "sha": "985f542df58b01091afd1257d17f285cd19d5a05",
+      "sha": "38e95bf872cc91c4a5e98050f0a9ebeddf42cd04",
       "date": "2026-06-26",
       "date_source": "changelog",
       "reconstructed": false,
@@ -85,7 +85,7 @@
     },
     {
       "version": "0.1.10",
-      "sha": "71bcafcebd98cb666211260c477d16ddc0322a05",
+      "sha": "3a04974c5cc5fb9264158f68a108d67b3645c6a5",
       "date": "2026-07-22",
       "date_source": "changelog",
       "reconstructed": false,
@@ -93,7 +93,7 @@
     },
     {
       "version": "0.1.11",
-      "sha": "84acecfd660b5c400f00a55a7e55692b30878932",
+      "sha": "f92bdddc6466d7a865bcfe6b70f07f13cb4dddf7",
       "date": "2026-07-26",
       "date_source": "changelog",
       "reconstructed": false,
@@ -101,7 +101,7 @@
     },
     {
       "version": "0.2.0",
-      "sha": "a34f815fc2370ab0d3ee7945f6dcb02e5b85d91d",
+      "sha": "d1d9c42f16867fdabf404418e581b381b2572b2f",
       "date": "2026-08-19",
       "date_source": "changelog",
       "reconstructed": false,
@@ -109,7 +109,7 @@
     },
     {
       "version": "0.2.1",
-      "sha": "79fd97271171d1021dd7cac851e9d775ada23a8c",
+      "sha": "186465bb198af41a3954498ef939013fccae8357",
       "date": "2026-08-28",
       "date_source": "changelog",
       "reconstructed": false,
@@ -117,7 +117,7 @@
     },
     {
       "version": "0.2.2",
-      "sha": "eaf8c00e95efa2ddafced940546eea2d50ed95ce",
+      "sha": "f332d6bc3eea40f01b135f46d63c3df4d71e82a3",
       "date": "2026-09-02",
       "date_source": "changelog",
       "reconstructed": false,
@@ -125,7 +125,7 @@
     },
     {
       "version": "0.2.3",
-      "sha": "6228c438f605d862c5631af7a59eb831694bff8c",
+      "sha": "bbe383d072a19eb8e5e693833559f8bd11302bde",
       "date": "2026-09-04",
       "date_source": "changelog",
       "reconstructed": false,
@@ -133,7 +133,7 @@
     },
     {
       "version": "0.2.4",
-      "sha": "740a852ac3360df1543d44ccc78f8a30be7c4ea9",
+      "sha": "daa69653417af07dfdad4a41febbd3c0f6711a44",
       "date": "2026-09-11",
       "date_source": "changelog",
       "reconstructed": false,
@@ -141,7 +141,7 @@
     },
     {
       "version": "0.2.5",
-      "sha": "bfbf29be334a56911408a06a469096e4154b8879",
+      "sha": "bcfbed27536207a0178ed94164209df99b530bf1",
       "date": "2026-09-20",
       "date_source": "changelog",
       "reconstructed": false,
