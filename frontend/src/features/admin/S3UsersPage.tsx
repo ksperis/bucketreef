@@ -59,6 +59,7 @@ import AdminManagerFeatureOverrides from "./AdminManagerFeatureOverrides";
 import { useAdminS3UserStats } from "./useAdminS3UserStats";
 import { useAdminI18n } from "./adminI18n";
 import AdminS3UsersList, { type AdminS3UsersSortField } from "./AdminS3UsersList";
+import AdminS3UserKeysPanel from "./AdminS3UserKeysPanel";
 import useAdminPaginatedListState from "./useAdminPaginatedListState";
 import useAdminPaginatedListController from "./useAdminPaginatedListController";
 import useAdminAssociationPickerState from "./useAdminAssociationPickerState";
@@ -82,7 +83,7 @@ import {
   MAX_VISIBLE_ASSOCIATION_OPTIONS,
 } from "./adminAssociationOptions";
 
-type EditTab = "general" | "ui_access" | "settings" | "manager";
+type EditTab = "general" | "ui_access" | "keys" | "settings" | "manager";
 
 export default function S3UsersPage() {
   const { intlLocale, text: adminText } = useAdminI18n();
@@ -171,6 +172,7 @@ export default function S3UsersPage() {
   } = useAdminS3UserStats(editingUserId, Boolean(editingUserId));
   const showEditGeneralTab = editTab === "general";
   const showEditUiAccessTab = editTab === "ui_access";
+  const showEditKeysTab = editTab === "keys";
   const showEditSettingsTab = editTab === "settings";
   const currentUser = useMemo(() => readStoredUser(), []);
   const canManageManagerFeatures = isAdminLikeRole(currentUser?.role);
@@ -836,22 +838,26 @@ export default function S3UsersPage() {
               tabs={[
                 { id: "general", label: adminText("General") },
                 { id: "ui_access", label: adminText("User access") },
+                { id: "keys", label: adminText("Keys") },
                 { id: "settings", label: adminText("Settings") },
                 { id: "manager", label: adminText("Manager features"), visible: canManageManagerFeatures },
               ].map((item) => ({ ...item, id: item.id as EditTab, disabled: editBusy || editDetailLoading }))}
             >
-              <SettingsForm
-                label={adminText("Edit RGW user")}
-                formRef={editFormRef}
-                busy={editBusy}
-                disabled={editDetailLoading}
-                onSubmit={submitEdit}
-                onCancel={editCloseGuard.requestClose}
-                submitLabel={adminText("Save changes")}
-                busyLabel={adminText("Saving...")}
-                actions={<SettingsPersistentEditActions dirty={editDirty} busy={editBusy} disabled={editDetailLoading}
-                  onCancel={editCloseGuard.requestClose} saveLabel={adminText("Save changes")} savingLabel={adminText("Saving...")} />}
-              >
+              {showEditKeysTab ? (
+                <AdminS3UserKeysPanel user={editingUser} />
+              ) : (
+                <SettingsForm
+                  label={adminText("Edit RGW user")}
+                  formRef={editFormRef}
+                  busy={editBusy}
+                  disabled={editDetailLoading}
+                  onSubmit={submitEdit}
+                  onCancel={editCloseGuard.requestClose}
+                  submitLabel={adminText("Save changes")}
+                  busyLabel={adminText("Saving...")}
+                  actions={<SettingsPersistentEditActions dirty={editDirty} busy={editBusy} disabled={editDetailLoading}
+                    onCancel={editCloseGuard.requestClose} saveLabel={adminText("Save changes")} savingLabel={adminText("Saving...")} />}
+                >
                 {editError && <UiInlineMessage tone="error" role="alert">{editError}</UiInlineMessage>}
                 {showEditGeneralTab && (
                   <div className="settings-stack">
@@ -991,7 +997,8 @@ export default function S3UsersPage() {
                 onChange={(key, value) => setEditForm((current) => ({ ...current, [key]: value }))}
               />
             )}
-              </SettingsForm>
+                </SettingsForm>
+              )}
           </WorkflowTabs>
           {editCloseGuard.confirmationDialog}
         </WorkflowPage>

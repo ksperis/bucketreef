@@ -150,7 +150,7 @@ export default function AdminS3UsersList({
         label: "Actions",
         align: "right",
         mobileRole: "actions",
-        cellClassName: "min-w-[272px]",
+        cellClassName: "min-w-[220px]",
         render: (user) => {
           const deleteBusy = deleteBusyId === user.id;
           return (
@@ -169,9 +169,6 @@ export default function AdminS3UsersList({
                 })}
               >
                 {adminText("Review access")}
-              </ListActionLink>
-              <ListActionLink to={`/admin/s3-users/${user.id}/keys`}>
-                {adminText("Keys")}
               </ListActionLink>
               <ListActionButton
                 type="button"

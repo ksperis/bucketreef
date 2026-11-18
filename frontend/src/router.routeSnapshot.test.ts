@@ -29,7 +29,6 @@ describe("route snapshot", () => {
       "/admin/s3-accounts",
       "/admin/s3-users",
       "/admin/s3-connections",
-      "/admin/s3-users/:userId/keys",
       "/admin/storage-endpoints",
       "/admin/storage-endpoints/:endpointId",
       "/admin/endpoint-status",

@@ -14,6 +14,11 @@ const updateS3UserMock = vi.fn();
 const createS3UserMock = vi.fn();
 const importS3UsersMock = vi.fn();
 const deleteS3UserMock = vi.fn();
+const listS3UserKeysMock = vi.fn();
+const createS3UserKeyMock = vi.fn();
+const deleteS3UserKeyMock = vi.fn();
+const rotateS3UserKeysMock = vi.fn();
+const updateS3UserKeyStatusMock = vi.fn();
 
 const listStorageEndpointsMock = vi.fn();
 const getStorageEndpointMock = vi.fn();
@@ -94,6 +99,12 @@ vi.mock("../../api/s3Users", () => ({
   createS3User: (payload: unknown) => createS3UserMock(payload),
   importS3Users: (payload: unknown) => importS3UsersMock(payload),
   deleteS3User: (userId: number, options?: unknown) => deleteS3UserMock(userId, options),
+  listS3UserKeys: (userId: number) => listS3UserKeysMock(userId),
+  createS3UserKey: (userId: number) => createS3UserKeyMock(userId),
+  deleteS3UserKey: (userId: number, accessKeyId: string) => deleteS3UserKeyMock(userId, accessKeyId),
+  rotateS3UserKeys: (userId: number) => rotateS3UserKeysMock(userId),
+  updateS3UserKeyStatus: (userId: number, accessKeyId: string, active: boolean) =>
+    updateS3UserKeyStatusMock(userId, accessKeyId, active),
 }));
 
 vi.mock("../../api/storageEndpoints", () => ({
@@ -199,6 +210,25 @@ describe("S3UsersPage modal tabs", () => {
     createS3UserMock.mockResolvedValue(undefined);
     importS3UsersMock.mockResolvedValue(undefined);
     deleteS3UserMock.mockResolvedValue(undefined);
+    listS3UserKeysMock.mockResolvedValue([
+      {
+        access_key_id: "AKIAEXAMPLE",
+        status: "Active",
+        created_at: "2026-10-01T12:00:00Z",
+        is_ui_managed: false,
+        is_active: true,
+        is_private_access_managed: false,
+        managed_connection_id: null,
+      },
+    ]);
+    createS3UserKeyMock.mockResolvedValue({
+      access_key_id: "AKIANEW",
+      secret_access_key: "secret-once",
+      created_at: "2026-10-02T12:00:00Z",
+    });
+    deleteS3UserKeyMock.mockResolvedValue(undefined);
+    rotateS3UserKeysMock.mockResolvedValue(makeS3User());
+    updateS3UserKeyStatusMock.mockResolvedValue(undefined);
   });
 
   it("shows the compact empty state when no RGW users exist", async () => {
@@ -311,8 +341,8 @@ describe("S3UsersPage modal tabs", () => {
     const tabs = screen.getAllByRole("tab");
     expect(tabs.map((tab) => tab.textContent?.trim())).toEqual([
       "General",
-      "Linked UI users",
-      "Linked UI groups",
+      "User access",
+      "Keys",
       "Settings",
       "Manager features",
     ]);
@@ -324,6 +354,33 @@ describe("S3UsersPage modal tabs", () => {
     expect(settingsHeadings.slice(0, 2)).toEqual(["Services and monitoring", "Limits"]);
     expect(within(settingsPanel).getByLabelText("Max buckets")).toBeInTheDocument();
     expect(within(settingsPanel).queryByLabelText("Max users")).not.toBeInTheDocument();
+  });
+
+  it("loads RGW access keys in the edit workflow without exposing save actions", async () => {
+    render(
+      <MemoryRouter>
+        <S3UsersPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("rgw-user-1");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    await waitFor(() => expect(screen.getByLabelText("Display name")).toBeEnabled());
+
+    fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "unsaved-name" } });
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
+
+    const keysTab = screen.getByRole("tab", { name: "Keys" });
+    fireEvent.click(keysTab);
+
+    expect(await screen.findByText("AKIAEXAMPLE")).toBeInTheDocument();
+    expect(listS3UserKeysMock).toHaveBeenCalledWith(5);
+    expect(screen.getByRole("button", { name: "New key" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Save changes" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("tab", { name: "General" }));
+    expect(screen.getByLabelText("Display name")).toHaveValue("unsaved-name");
+    expect(screen.getByRole("button", { name: "Save changes" })).toBeInTheDocument();
   });
 
   it("keeps asynchronously loaded quotas in the server baseline", async () => {
@@ -529,7 +586,8 @@ describe("S3UsersPage modal tabs", () => {
     expect(associations).toBeInTheDocument();
     expect(associations.querySelector(".rounded-lg")).toBeInTheDocument();
     expect(associations.closest("td")).toHaveAttribute("data-label", "UI Users / Groups");
-    expect(within(table).getByRole("link", { name: "Keys" }).closest("td")).toHaveAttribute("data-mobile-actions", "true");
+    expect(within(table).getByRole("button", { name: "Edit" }).closest("td")).toHaveAttribute("data-mobile-actions", "true");
+    expect(within(table).queryByRole("link", { name: "Keys" })).not.toBeInTheDocument();
   });
 
   it("requests default sorting and toggles RGW user table headers", async () => {
@@ -602,7 +660,7 @@ describe("S3UsersPage modal tabs", () => {
     });
   });
 
-  it("keeps Linked UI users changes across tabs and submits canonical user links", async () => {
+  it("keeps linked UI user changes across tabs and submits canonical user links", async () => {
     render(
       <MemoryRouter>
         <S3UsersPage />
@@ -615,14 +673,14 @@ describe("S3UsersPage modal tabs", () => {
     expect(screen.queryByRole("button", { name: "Tags" })).not.toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Add a tag for this RGW user" })).toBeInTheDocument();
 
-    fireEvent.click(await screen.findByRole("tab", { name: "Linked UI users" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "User access" }));
 
     fireEvent.click(screen.getByRole("button", { name: "Add UI users" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "ui33@example.com" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Linked UI users" }));
+    fireEvent.click(screen.getByRole("tab", { name: "User access" }));
 
     expect(screen.getByText("ui33@example.com")).toBeInTheDocument();
 
@@ -647,7 +705,7 @@ describe("S3UsersPage modal tabs", () => {
     );
   });
 
-  it("keeps Linked UI groups changes across tabs and submits canonical group links", async () => {
+  it("keeps linked UI group changes across tabs and submits canonical group links", async () => {
     render(
       <MemoryRouter>
         <S3UsersPage />
@@ -657,15 +715,15 @@ describe("S3UsersPage modal tabs", () => {
     await screen.findByText("rgw-user-1");
     fireEvent.click(screen.getByRole("button", { name: "Edit" }));
 
-    fireEvent.click(await screen.findByRole("tab", { name: "Linked UI groups" }));
-    expect(screen.getByText("No linked groups yet.")).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("tab", { name: "User access" }));
+    expect(screen.getByText("No user access is linked yet.")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Add UI groups" }));
     fireEvent.click(await screen.findByRole("checkbox", { name: "Storage Group" }));
     fireEvent.click(screen.getByRole("button", { name: "Add selected" }));
 
     fireEvent.click(screen.getByRole("tab", { name: "General" }));
-    fireEvent.click(screen.getByRole("tab", { name: "Linked UI groups" }));
+    fireEvent.click(screen.getByRole("tab", { name: "User access" }));
     expect(screen.getByText("Storage Group")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));

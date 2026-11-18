@@ -54,7 +54,6 @@ const CostPage = lazy(() => import("./features/admin/CostPage"));
 const CostSubjectDetailPage = lazy(() => import("./features/admin/CostSubjectDetailPage"));
 const UsageHistoryPage = lazy(() => import("./features/admin/UsageHistoryPage"));
 const S3UsersPage = lazy(() => import("./features/admin/S3UsersPage"));
-const S3UserKeysPage = lazy(() => import("./features/admin/S3UserKeysPage"));
 const S3ConnectionsPage = lazy(() => import("./features/admin/S3ConnectionsPage"));
 const GeneralSettingsPage = lazy(() => import("./features/admin/GeneralSettingsPage"));
 const CostSettingsPage = lazy(() => import("./features/admin/CostSettingsPage"));
@@ -164,12 +163,12 @@ function AdminRgwAccountsRoute() {
     : <FeatureDisabledPage feature="RGW Accounts" />;
 }
 
-function AdminRgwUsersRoute({ keys = false }: { keys?: boolean }) {
+function AdminRgwUsersRoute() {
   const { generalSettings } = useGeneralSettings();
   if (!generalSettings.managed_rgw_users_enabled) {
     return <FeatureDisabledPage feature="RGW Users" />;
   }
-  return keys ? <S3UserKeysPage /> : <S3UsersPage />;
+  return <S3UsersPage />;
 }
 
 function AdminSharedS3ConnectionsRoute() {
@@ -220,7 +219,6 @@ export function createAppRoutes(runtimeSurfaces: RuntimeSurfaces = DEFAULT_RUNTI
                 <Route path="s3-accounts" element={<AdminRgwAccountsRoute />} />
                 <Route path="s3-users" element={<AdminRgwUsersRoute />} />
                 <Route path="s3-connections" element={<AdminSharedS3ConnectionsRoute />} />
-                <Route path="s3-users/:userId/keys" element={<AdminRgwUsersRoute keys />} />
                 <Route path="storage-endpoints" element={<StorageEndpointsPage />} />
                 <Route path="storage-endpoints/:endpointId" element={<StorageEndpointsPage />} />
                 <Route path="endpoint-status" element={<AdminEndpointStatusRoute />} />
