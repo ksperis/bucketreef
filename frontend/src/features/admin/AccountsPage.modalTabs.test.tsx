@@ -48,7 +48,7 @@ const makeAccountDetail = (overrides: Record<string, unknown> = {}) => ({
   storage_endpoint_name: "ceph-main",
   storage_endpoint_url: "https://ceph.example.test",
   storage_endpoint_is_default: true,
-  storage_endpoint_capabilities: { account: true, admin: true, usage: true },
+  storage_endpoint_capabilities: { account: true, admin: true, usage: true, metrics: true },
   quota_max_size_gb: null,
   quota_max_objects: null,
   max_buckets: null,
@@ -229,6 +229,7 @@ describe("AccountsPage modal tabs", () => {
           account: true,
           admin: true,
           usage: true,
+          metrics: true,
         },
       },
     ]);
@@ -242,6 +243,7 @@ describe("AccountsPage modal tabs", () => {
         account: true,
         admin: true,
         usage: true,
+        metrics: true,
       },
       admin_ops_permissions: {
         buckets_write: true,
@@ -477,6 +479,42 @@ describe("AccountsPage modal tabs", () => {
     expect(within(settingsPanel).getByLabelText("Max roles")).toBeInTheDocument();
     expect(within(settingsPanel).getByLabelText("Max groups")).toBeInTheDocument();
     expect(within(settingsPanel).queryByLabelText(/Max access keys/i)).not.toBeInTheDocument();
+  });
+
+  it("uses the storage metrics capability to enable account storage statistics", async () => {
+    getS3AccountMock.mockResolvedValueOnce(makeAccountDetail({
+      storage_endpoint_capabilities: {
+        account: true,
+        admin: true,
+        usage: false,
+        metrics: true,
+      },
+    }));
+    renderPage();
+
+    await screen.findByText("acc-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+
+    await waitFor(() => expect(adminAccountStatsMock).toHaveBeenLastCalledWith(1, true));
+    expect(screen.queryByText("Storage metrics are not available for this account.")).not.toBeInTheDocument();
+  });
+
+  it("disables account storage statistics when storage metrics are disabled", async () => {
+    getS3AccountMock.mockResolvedValueOnce(makeAccountDetail({
+      storage_endpoint_capabilities: {
+        account: true,
+        admin: true,
+        usage: true,
+        metrics: false,
+      },
+    }));
+    renderPage();
+
+    await screen.findByText("acc-1");
+    fireEvent.click(screen.getAllByRole("button", { name: "Edit" })[0]);
+
+    expect(await screen.findByText("Storage metrics are not available for this account.")).toBeInTheDocument();
+    expect(adminAccountStatsMock).toHaveBeenLastCalledWith(1, false);
   });
 
   it("prefills, updates, and clears account limits from the RGW detail response", async () => {

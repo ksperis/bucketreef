@@ -119,8 +119,8 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
   const allowLimitUpdates = allowQuotaUpdates;
   const { generalSettings } = useGeneralSettings();
   const allowBucketQuotas = Boolean(endpointPermissions?.buckets_write);
-  const usageEnabled = Boolean(account.storage_endpoint_capabilities.usage && account.rgw_account_id);
-  const usage = useAdminAccountStats(account.id, usageEnabled);
+  const storageMetricsEnabled = Boolean(account.storage_endpoint_capabilities.metrics && account.rgw_account_id);
+  const usage = useAdminAccountStats(account.id, storageMetricsEnabled);
   const tags = useTagCatalog({ kind: "admin", domain: "admin_managed" }, true);
   const quotaErrors = allowQuotaUpdates ? adminQuotaErrors(form.draft) : {};
   const limitErrors = adminLimitErrors(form.draft, ADMIN_ACCOUNT_LIMIT_FIELDS);
@@ -223,7 +223,7 @@ function LoadedAccountEditor({ account, canManageManagerFeatures, onClose, onSav
                   onChange={value => update("tags", value)} placeholder={adminText("Add a tag for this account")} hint={tags.loading ? adminText("Loading existing tag catalog...") : undefined} />
               </SettingsSection>
               <SettingsSection title={adminText("Usage")} description={adminText("Observed storage use and the currently saved limits.")} presentation="compact">
-                {!usageEnabled ? <UiInlineMessage tone="info">{adminText("Storage metrics are not available for this account.")}</UiInlineMessage>
+                {!storageMetricsEnabled ? <UiInlineMessage tone="info">{adminText("Storage metrics are not available for this account.")}</UiInlineMessage>
                   : usage.loading ? <p role="status">{adminText("Loading storage usage...")}</p>
                     : usage.error ? <UiInlineMessage tone="error">{usage.error} <SettingsButton variant="secondary" onClick={() => void usage.reload()}>{adminText("Retry usage")}</SettingsButton></UiInlineMessage>
                       : <>
