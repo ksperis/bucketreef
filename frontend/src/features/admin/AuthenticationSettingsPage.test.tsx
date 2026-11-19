@@ -276,7 +276,7 @@ describe("AuthenticationSettingsPage", () => {
     renderPage();
 
     expect(await screen.findByRole("heading", { name: "Authentication settings" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Access-key login")).toBeInTheDocument();
+    expect(await screen.findByLabelText("Access-key login")).toBeInTheDocument();
     expect(screen.getByLabelText("Access-key endpoint list")).toBeInTheDocument();
     expect(screen.getByLabelText("Custom login endpoint")).toBeInTheDocument();
     expect(screen.getByLabelText("Require passkeys for administrators")).toBeChecked();
