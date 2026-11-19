@@ -17,6 +17,15 @@ const mocks = vi.hoisted(() => ({
   fetchGeneralSettings: vi.fn(),
   fetchLoginSettings: vi.fn(),
   getWorkspaceAccess: vi.fn(),
+  runtimeSurfaces: {
+    admin: true,
+    ceph_admin: true,
+    storage_ops: true,
+    manager: true,
+    portal: true,
+    browser: true,
+  },
+  setGeneralSettings: vi.fn(),
 }));
 
 vi.mock("../../api/auth", () => ({
@@ -36,6 +45,14 @@ vi.mock("../../api/appSettings", async (importOriginal) => ({
 
 vi.mock("../../api/executionContexts", () => ({
   getWorkspaceAccess: (...args: unknown[]) => mocks.getWorkspaceAccess(...args),
+}));
+
+vi.mock("../../components/GeneralSettingsContext", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../components/GeneralSettingsContext")>()),
+  useGeneralSettings: () => ({
+    runtimeSurfaces: mocks.runtimeSurfaces,
+    setGeneralSettings: mocks.setGeneralSettings,
+  }),
 }));
 
 vi.mock("../../utils/routePrefetch", () => ({
@@ -91,6 +108,14 @@ describe("LoginPage", () => {
     window.history.replaceState({}, "", "/login");
     window.localStorage.clear();
     vi.clearAllMocks();
+    mocks.runtimeSurfaces = {
+      admin: true,
+      ceph_admin: true,
+      storage_ops: true,
+      manager: true,
+      portal: true,
+      browser: true,
+    };
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     mocks.fetchOidcProviders.mockResolvedValue([]);
     mocks.fetchLdapProviders.mockResolvedValue([{ id: "corp", display_name: "Corporate LDAP" }]);
@@ -287,6 +312,51 @@ describe("LoginPage", () => {
     expect(await screen.findByText("No access assigned")).toBeInTheDocument();
     expect(window.localStorage.getItem("token")).toBeNull();
     expect(window.localStorage.getItem("user")).toBeNull();
+  });
+
+  it("does not request workspace access after login on an Admin-only runtime", async () => {
+    const user = userEvent.setup();
+    mocks.runtimeSurfaces = {
+      admin: true,
+      ceph_admin: false,
+      storage_ops: false,
+      manager: false,
+      portal: false,
+      browser: false,
+    };
+    mocks.loginWithLdap.mockResolvedValueOnce({
+      status: "authenticated",
+      user: {
+        id: 42,
+        email: "admin@example.test",
+        role: "ui_admin",
+        is_admin: true,
+        account_links: [],
+        s3_user_details: [],
+        s3_connection_details: [],
+      },
+    });
+
+    render(
+      <LanguageProvider>
+        <ThemeProvider>
+          <MemoryRouter initialEntries={["/login"]}>
+            <Routes>
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/admin" element={<p>Admin destination</p>} />
+            </Routes>
+          </MemoryRouter>
+        </ThemeProvider>
+      </LanguageProvider>
+    );
+
+    await user.click(await screen.findByRole("button", { name: "Directory" }));
+    await user.type(screen.getByLabelText("Username"), "admin");
+    await user.type(screen.getByLabelText("Password"), "secret-password");
+    await user.click(screen.getByRole("button", { name: "Sign in with directory" }));
+
+    expect(await screen.findByText("Admin destination")).toBeInTheDocument();
+    expect(mocks.getWorkspaceAccess).not.toHaveBeenCalled();
   });
 
   it("continues an LDAP email collision through the external identity link flow", async () => {

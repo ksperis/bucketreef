@@ -445,6 +445,7 @@ function StorageSpaceDetail() {
             rgwAccountId={selectedAccount?.rgw_account_id}
             space={space}
             bucketUsageStatsEnabled={state?.bucket_usage_stats_enabled === true}
+            trafficEnabled={selectedAccount?.storage_endpoint_capabilities.usage === true}
           />
         </PortalTabPanel>
       ) : null}

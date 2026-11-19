@@ -99,16 +99,18 @@ export default function OidcCallbackPage() {
           console.error(loadError);
         }
         let baseDestination = resolvePostLoginPath(sessionUser, settings, runtimeSurfaces);
-        try {
-          const workspaceAccess = await getWorkspaceAccess();
-          baseDestination = resolvePostLoginPathWithWorkspaceAccess(
-            sessionUser,
-            settings,
-            workspaceAccess,
-            runtimeSurfaces,
-          );
-        } catch (workspaceError) {
-          console.error(workspaceError);
+        if (runtimeSurfaces.manager || runtimeSurfaces.portal || runtimeSurfaces.browser) {
+          try {
+            const workspaceAccess = await getWorkspaceAccess();
+            baseDestination = resolvePostLoginPathWithWorkspaceAccess(
+              sessionUser,
+              settings,
+              workspaceAccess,
+              runtimeSurfaces,
+            );
+          } catch (workspaceError) {
+            console.error(workspaceError);
+          }
         }
         const destination = baseDestination;
         prefetchWorkspaceBranch(destination);

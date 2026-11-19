@@ -98,6 +98,7 @@ export function usePortalWorkspaceData({
   const accountContext = usePortalAccountContext();
   const { accountIdForApi, selectedAccount, hasAccountContext, loading: accountLoading, error: accountError } = accountContext;
   const accountKey = normalizeS3AccountId(accountIdForApi);
+  const trafficEnabled = selectedAccount?.storage_endpoint_capabilities.usage === true;
   const [stateResult, setStateResult] = useState<{
     accountKey: string;
     data: PortalState | null;
@@ -298,7 +299,7 @@ export function usePortalWorkspaceData({
 
   useEffect(() => {
     let cancelled = false;
-    if (!includeTraffic || !hasAccountContext || !accountIdForApi) {
+    if (!includeTraffic || !hasAccountContext || !accountIdForApi || !trafficEnabled) {
       setTraffic(null);
       setTrafficByWindow({});
       setTrafficLoading(false);
@@ -363,7 +364,7 @@ export function usePortalWorkspaceData({
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, hasAccountContext, includeTraffic, includeTrafficTrend, refreshToken, t, trafficWindow]);
+  }, [accountIdForApi, hasAccountContext, includeTraffic, includeTrafficTrend, refreshToken, t, trafficEnabled, trafficWindow]);
 
   useEffect(() => {
     let cancelled = false;

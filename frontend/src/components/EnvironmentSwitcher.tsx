@@ -44,6 +44,7 @@ export function useWorkspaceSwitcherModel(): WorkspaceSwitcherModel | null {
   });
   const { generalSettings, runtimeSurfaces } = useGeneralSettings();
   const { authenticated, user: sessionUser } = useSession();
+  const workspaceAccessAvailable = runtimeSurfaces.manager || runtimeSurfaces.portal || runtimeSurfaces.browser;
 
   useEffect(() => {
     if (!authenticated) return;
@@ -86,9 +87,9 @@ export function useWorkspaceSwitcherModel(): WorkspaceSwitcherModel | null {
   const current = resolveWorkspaceFromPath(location.pathname, environments);
 
   useEffect(() => {
-    if (!contextUserKey) {
+    if (!contextUserKey || !workspaceAccessAvailable) {
       setResolvedContextAvailability({
-        userKey: null,
+        userKey: contextUserKey,
         availability: { manager: false, browser: false, portal: false },
       });
       return;
@@ -115,7 +116,7 @@ export function useWorkspaceSwitcherModel(): WorkspaceSwitcherModel | null {
     return () => {
       cancelled = true;
     };
-  }, [contextUserKey]);
+  }, [contextUserKey, workspaceAccessAvailable]);
 
   const currentWorkspaceId = current?.id ?? null;
 

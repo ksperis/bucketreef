@@ -32,6 +32,7 @@ type PortalStorageSpaceStatisticsProps = {
   rgwAccountId?: string | null;
   space: PortalWorkspaceSpace;
   bucketUsageStatsEnabled: boolean;
+  trafficEnabled: boolean;
 };
 
 export default function PortalStorageSpaceStatistics({
@@ -40,6 +41,7 @@ export default function PortalStorageSpaceStatistics({
   rgwAccountId,
   space,
   bucketUsageStatsEnabled,
+  trafficEnabled,
 }: PortalStorageSpaceStatisticsProps) {
   const { locale, t } = useI18n();
   const [usageStatsSnapshot, setUsageStatsSnapshot] = useState<PortalStorageSpaceUsageStatsSnapshot | null>(null);
@@ -87,7 +89,12 @@ export default function PortalStorageSpaceStatistics({
 
   useEffect(() => {
     let cancelled = false;
-    if (!canBrowse) return;
+    if (!canBrowse || !trafficEnabled) {
+      setSpaceTraffic(null);
+      setSpaceTrafficLoading(false);
+      setSpaceTrafficError(null);
+      return;
+    }
     setSpaceTrafficLoading(true);
     setSpaceTrafficError(null);
     fetchPortalTraffic(accountIdForApi, trafficWindow, bucketName)
@@ -115,7 +122,7 @@ export default function PortalStorageSpaceStatistics({
     return () => {
       cancelled = true;
     };
-  }, [accountIdForApi, bucketName, canBrowse, t, trafficWindow]);
+  }, [accountIdForApi, bucketName, canBrowse, t, trafficEnabled, trafficWindow]);
 
   const quotaPercent = clampedPercentageOf(space.usedBytes, space.quotaBytes);
   const remainingBytes =

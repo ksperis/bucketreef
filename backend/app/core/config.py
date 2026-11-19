@@ -247,7 +247,7 @@ class Settings(BaseSettings):
     )
     content_security_policy: str = (
         "default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
-        "img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; "
+        "img-src 'self' data: blob: https:; style-src 'self' 'unsafe-inline'; script-src 'self'; "
         "worker-src 'self'; connect-src 'self'"
     )
 

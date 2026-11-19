@@ -6,6 +6,7 @@ import { usePortalWorkspaceData } from "./usePortalWorkspaceData";
 
 const mocks = vi.hoisted(() => ({
   accountId: 101,
+  storageEndpointCapabilities: { usage: true } as Record<string, boolean>,
   fetchPortalActivityMock: vi.fn(),
   fetchPortalAlertsMock: vi.fn(),
   fetchPortalCollaboratorsMock: vi.fn(),
@@ -19,7 +20,12 @@ const mocks = vi.hoisted(() => ({
 vi.mock("./PortalAccountContext", () => ({
   usePortalAccountContext: () => ({
     accountIdForApi: mocks.accountId,
-    selectedAccount: { id: mocks.accountId, name: "Account 1", tags: [] },
+    selectedAccount: {
+      id: mocks.accountId,
+      name: "Account 1",
+      tags: [],
+      storage_endpoint_capabilities: mocks.storageEndpointCapabilities,
+    },
     hasAccountContext: true,
     loading: false,
     error: null,
@@ -63,6 +69,7 @@ describe("usePortalWorkspaceData", () => {
     vi.clearAllMocks();
     setSessionUserCache({ ui_language: "en" });
     mocks.accountId = 101;
+    mocks.storageEndpointCapabilities = { usage: true };
     mocks.fetchPortalActivityMock.mockResolvedValue([]);
     mocks.fetchPortalAlertsMock.mockResolvedValue([]);
     mocks.fetchPortalCollaboratorsMock.mockResolvedValue({
@@ -140,5 +147,21 @@ describe("usePortalWorkspaceData", () => {
     await waitFor(() => {
       expect(mocks.listPortalStorageSpacesMock).toHaveBeenCalledWith(101, undefined);
     });
+  });
+
+  it("does not request traffic when endpoint usage is unavailable", async () => {
+    mocks.storageEndpointCapabilities = { usage: false };
+
+    const { result } = renderHook(
+      () => usePortalWorkspaceData({ includeTraffic: true, includeTrafficTrend: true }),
+      { wrapper: LanguageProvider },
+    );
+
+    await waitFor(() => expect(result.current.stateLoading).toBe(false));
+    expect(mocks.fetchPortalTrafficMock).not.toHaveBeenCalled();
+    expect(result.current.traffic).toBeNull();
+    expect(result.current.trafficByWindow).toEqual({});
+    expect(result.current.trafficLoading).toBe(false);
+    expect(result.current.trafficError).toBeNull();
   });
 });

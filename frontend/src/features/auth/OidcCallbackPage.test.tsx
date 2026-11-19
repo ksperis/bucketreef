@@ -18,7 +18,14 @@ const mocks = vi.hoisted(() => ({
   acceptAuthentication: vi.fn(),
   setGeneralSettings: vi.fn(),
   setTheme: vi.fn(),
-  runtimeSurfaces: {},
+  runtimeSurfaces: {
+    admin: true,
+    ceph_admin: true,
+    storage_ops: true,
+    manager: true,
+    portal: true,
+    browser: true,
+  },
 }));
 
 vi.mock("../../api/auth", () => ({ completeOidcLogin: mocks.completeLogin }));
@@ -47,6 +54,14 @@ describe("OIDC callback localization", () => {
     vi.clearAllMocks();
     localStorage.clear();
     localStorage.setItem(CLIENT_STORAGE_KEYS.languagePreference, "en");
+    mocks.runtimeSurfaces = {
+      admin: true,
+      ceph_admin: true,
+      storage_ops: true,
+      manager: true,
+      portal: true,
+      browser: true,
+    };
     mocks.workspaceAccess.mockResolvedValue({});
   });
 
@@ -101,6 +116,36 @@ describe("OIDC callback localization", () => {
     expect(await screen.findByText("Account link continuation")).toBeInTheDocument();
     expect(mocks.acceptAuthentication).not.toHaveBeenCalled();
     expect(mocks.fetchSettings).not.toHaveBeenCalled();
+    expect(mocks.workspaceAccess).not.toHaveBeenCalled();
+  });
+
+  it("does not request workspace access after OIDC login on an Admin-only runtime", async () => {
+    mocks.runtimeSurfaces = {
+      admin: true,
+      ceph_admin: false,
+      storage_ops: false,
+      manager: false,
+      portal: false,
+      browser: false,
+    };
+    mocks.fetchSettings.mockResolvedValue({});
+    mocks.completeLogin.mockResolvedValue({
+      status: "authenticated",
+      user: { id: 1, email: "admin@example.com", role: "ui_admin" },
+    } as AuthenticationResponse);
+
+    render(
+      <LanguageProvider>
+        <MemoryRouter initialEntries={["/auth/oidc/example/callback?code=test-code&state=admin-only-state"]}>
+          <Routes>
+            <Route path="/auth/oidc/:provider/callback" element={<OidcCallbackPage />} />
+            <Route path="/browser" element={<p>Browser destination</p>} />
+          </Routes>
+        </MemoryRouter>
+      </LanguageProvider>,
+    );
+
+    expect(await screen.findByText("Browser destination")).toBeInTheDocument();
     expect(mocks.workspaceAccess).not.toHaveBeenCalled();
   });
 

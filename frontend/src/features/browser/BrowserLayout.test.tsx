@@ -311,6 +311,31 @@ describe("BrowserLayout", () => {
     expect(fetchManagerContextMock).not.toHaveBeenCalled();
   });
 
+  it("does not load Manager context for a Portal Browser account", async () => {
+    useBrowserContextMock.mockReturnValue(buildBrowserContext({
+      contexts: [buildExecutionContext("portal-1", {
+        kind: "portal_account",
+        display_name: "Portal account",
+      })],
+      selectedContextId: "portal-1",
+    }));
+
+    render(
+      <MemoryRouter initialEntries={["/browser"]}>
+        <Routes>
+          <Route path="/browser" element={<BrowserLayout />}>
+            <Route index element={<BrowserSidebarSlotConsumer />} />
+          </Route>
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("Portal account")).toBeInTheDocument();
+    });
+    expect(fetchManagerContextMock).not.toHaveBeenCalled();
+  });
+
   it("shows the RGW destination selector for an eligible Browser connection", () => {
     const setExecutionEndpointId = vi.fn();
     useBrowserContextMock.mockReturnValue(buildBrowserContext({

@@ -89,6 +89,7 @@ function BrowserShell() {
   const isBrowserExplorerRoute = normalizedPath === "/browser";
   const selected = contexts.find((a) => a.id === selectedContextId);
   const canLoadManagerIdentity = !(
+    selected?.kind === "portal_account" ||
     selected?.kind === "connection" && selected.capabilities.can_manage_iam === false
   );
   const identityLabel = identityState.iamIdentity

@@ -119,6 +119,9 @@ export default function LoginPage() {
     sessionUser: SessionUser,
     settings: GeneralSettings
   ): Promise<string> => {
+    if (!runtimeSurfaces.manager && !runtimeSurfaces.portal && !runtimeSurfaces.browser) {
+      return resolvePostLoginPath(sessionUser, settings, runtimeSurfaces);
+    }
     try {
       const workspaceAccess = await getWorkspaceAccess();
       return resolvePostLoginPathWithWorkspaceAccess(

@@ -92,7 +92,7 @@ function buildStorageSpaceDetailWorkspaceData(): PortalStorageSpaceDetailWorkspa
       name: "Account 1",
       rgw_account_id: "portal-project",
       portal_role: "portal_manager",
-      storage_endpoint_capabilities: { sse: true, sts: true },
+      storage_endpoint_capabilities: { sse: true, sts: true, usage: true },
     }),
     workspace: {
       accountName: "Account 1",
@@ -567,7 +567,7 @@ describe("PortalStorageSpaceDetailPage", () => {
       lockedBucketName: "research-data-internal",
       lockedBucketLabel: "Research Data",
     });
-    expect(embedProps.storageEndpointCapabilities).toEqual({ sse: true, sts: true });
+    expect(embedProps.storageEndpointCapabilities).toEqual({ sse: true, sts: true, usage: true });
     expect(embedProps.onOpenObjectDetails).toEqual(expect.any(Function));
     expect(embedProps.transferReporter).toBeUndefined();
   });
@@ -830,6 +830,16 @@ describe("PortalStorageSpaceDetailPage", () => {
     expect(screen.getByText("Storage used")).toBeInTheDocument();
     expect(mocks.fetchUsageStatsMock).not.toHaveBeenCalled();
     expect(mocks.fetchTrafficMock).not.toHaveBeenCalled();
+  });
+
+  it("does not request Storage Space traffic when endpoint usage is unavailable", async () => {
+    mocks.hookResult.selectedAccount!.storage_endpoint_capabilities.usage = false;
+
+    await renderPage(["/portal/storage-spaces/research-data?tab=statistics"]);
+
+    await waitFor(() => expect(mocks.fetchUsageStatsMock).toHaveBeenCalledWith(101, "research-data"));
+    expect(mocks.fetchTrafficMock).not.toHaveBeenCalled();
+    expect(screen.getByText("Transfer activity")).toBeInTheDocument();
   });
 
   it("shows independent composition and traffic errors", async () => {

@@ -130,6 +130,14 @@ vi.mock("../shared/storageEndpointLabel", () => ({
 vi.mock("../../components/GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
     generalSettings: mocks.generalSettings,
+    runtimeSurfaces: {
+      admin: true,
+      ceph_admin: false,
+      storage_ops: false,
+      manager: true,
+      portal: true,
+      browser: true,
+    },
   }),
 }));
 

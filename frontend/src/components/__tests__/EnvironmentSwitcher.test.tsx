@@ -3,7 +3,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
-import type { GeneralSettings } from "../../api/appSettings";
+import type { GeneralSettings, RuntimeSurfaces } from "../../api/appSettings";
 import type { EffectiveUserAccess } from "../../api/users";
 import { useWorkspaceSwitcherModel } from "../EnvironmentSwitcher";
 import { readStoredUser, setSessionUserCache, type SessionUser } from "../../utils/workspaces";
@@ -12,6 +12,14 @@ const mocks = vi.hoisted(() => ({
   fetchCurrentUser: vi.fn(),
   generalSettings: {} as GeneralSettings,
   getWorkspaceAccess: vi.fn(),
+  runtimeSurfaces: {
+    admin: true,
+    ceph_admin: true,
+    storage_ops: true,
+    manager: true,
+    portal: true,
+    browser: true,
+  } as RuntimeSurfaces,
   sessionUser: null as Record<string, unknown> | null,
 }));
 
@@ -26,6 +34,7 @@ vi.mock("../../auth/SessionProvider", () => ({
 vi.mock("../GeneralSettingsContext", () => ({
   useGeneralSettings: () => ({
     generalSettings: mocks.generalSettings,
+    runtimeSurfaces: mocks.runtimeSurfaces,
   }),
 }));
 
@@ -206,6 +215,14 @@ describe("useWorkspaceSwitcherModel Portal workspace", () => {
   beforeEach(() => {
     setSessionUserCache(null);
     mocks.generalSettings = { ...baseSettings };
+    mocks.runtimeSurfaces = {
+      admin: true,
+      ceph_admin: true,
+      storage_ops: true,
+      manager: true,
+      portal: true,
+      browser: true,
+    };
     mocks.fetchCurrentUser.mockResolvedValue({
       id: 1,
       email: "admin@example.com",
@@ -276,6 +293,23 @@ describe("useWorkspaceSwitcherModel Portal workspace", () => {
       expect(mocks.getWorkspaceAccess).toHaveBeenCalledTimes(1);
     });
     expect(screen.queryByText("Portal (self-service)")).not.toBeInTheDocument();
+    expect(screen.getByText("No workspace switcher")).toBeInTheDocument();
+  });
+
+  it("does not request workspace access on an Admin-only runtime", async () => {
+    mocks.runtimeSurfaces = {
+      admin: true,
+      ceph_admin: false,
+      storage_ops: false,
+      manager: false,
+      portal: false,
+      browser: false,
+    };
+
+    renderSwitcherModel("/admin");
+
+    await waitFor(() => expect(mocks.fetchCurrentUser).toHaveBeenCalled());
+    expect(mocks.getWorkspaceAccess).not.toHaveBeenCalled();
     expect(screen.getByText("No workspace switcher")).toBeInTheDocument();
   });
 

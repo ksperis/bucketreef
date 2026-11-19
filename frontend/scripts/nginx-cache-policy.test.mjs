@@ -27,3 +27,7 @@ test("keeps Browser direct-transfer workers out of the immutable asset cache", (
   assert.match(workerBlock, /add_header Cache-Control "no-store, private" always;/);
   assert.match(workerBlock, /etag off;/);
 });
+
+test("allows blob URLs for Browser image previews", () => {
+  assert.match(config, /img-src 'self' data: blob: https:;/);
+});
