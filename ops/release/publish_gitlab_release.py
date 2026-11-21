@@ -77,7 +77,6 @@ def publish(api, version: str, sha: str, notes: str, *, root=ROOT, remote="origi
         })
     actual_links = {link["name"]: (link["url"], link.get("link_type")) for link in release["assets"]["links"]}
     if (release["description"] != notes or release["name"] != tag
-        or release["commit"]["id"] != sha
         or any(actual_links.get(link["name"]) != (link["url"], link["link_type"]) for link in links)):
         raise RuntimeError("Published GitLab release differs; refusing to replace it")
     if resolve_git_tag(version, root=root, remote=remote) != sha:

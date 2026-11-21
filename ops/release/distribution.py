@@ -252,7 +252,7 @@ def published_versions(github_api, gitlab_api):
             if release["draft"] or release["prerelease"] or not re.fullmatch(r"v[0-9]+\.[0-9]+\.[0-9]+", tag):
                 continue
             private = gitlab_api.request(f"releases/{tag}", missing_ok=True)
-            if private and private["commit"]["id"] == resolve_tag(github_api, tag):
+            if private and resolve_git_tag(tag[1:], missing_ok=True) == resolve_tag(github_api, tag):
                 versions.append(tag[1:])
         if len(releases) < 100:
             return versions
@@ -322,7 +322,7 @@ def verify_release_tag():
     if release is None or release.get("draft") or release.get("prerelease") or release.get("name") != tag:
         raise RuntimeError("GitHub stable tag does not have a published stable release")
     private = gl.request(f"releases/{tag}", missing_ok=True)
-    if private is None or private.get("commit", {}).get("id") != sha or private.get("name") != tag:
+    if private is None or private.get("name") != tag:
         raise RuntimeError("GitLab stable tag does not have the matching published release")
 
 

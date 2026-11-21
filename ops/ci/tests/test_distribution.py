@@ -13,6 +13,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'release'))
 import distribution as dist
 import bundle_registry
 import bootstrap_bundle_registry as bootstrap_registry
+import publish_gitlab_release as gitlab_release
 import qualification
 import registry
 from gitlab_api import expected_names
@@ -171,6 +172,22 @@ def test_release_index_requires_all_previous_versions_and_current_latest(monkeyp
         dist.verify_release_index(API('v1.2.2'), gl, include_current=True, require_latest=True)
 
 
+def test_published_versions_uses_gitlab_tag_when_release_commit_is_null(monkeypatch):
+    class GitHub:
+        def request(self, path, **kwargs):
+            assert path == 'releases?per_page=100&page=1'
+            return [{'tag_name':'v1.2.3','draft':False,'prerelease':False}]
+
+    class GitLab:
+        def request(self, path, **kwargs):
+            assert path == 'releases/v1.2.3'
+            return {'tag_name':'v1.2.3','name':'v1.2.3','commit':None}
+
+    monkeypatch.setattr(dist, 'resolve_tag', lambda *args, **kwargs: SHA)
+    monkeypatch.setattr(dist, 'resolve_git_tag', lambda *args, **kwargs: SHA)
+    assert dist.published_versions(GitHub(), GitLab()) == ['1.2.3']
+
+
 def test_finalization_rechecks_artifacts_before_any_public_mutation(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     dist.write('distribution-ready.json', {'files': {'bundle': 'original'}})
@@ -251,8 +268,28 @@ def test_tag_pipeline_only_accepts_an_already_published_matching_release(monkeyp
     state['github'] = {'draft':False, 'prerelease':False, 'name':'v1.2.3'}
     with pytest.raises(RuntimeError, match='GitLab stable tag'):
         dist.verify_release_tag()
-    state['gitlab'] = {'name':'v1.2.3', 'commit':{'id':SHA}}
+    state['gitlab'] = {'name':'v1.2.3', 'commit':None}
     dist.verify_release_tag()
+
+
+def test_gitlab_publication_verifies_tag_when_release_commit_is_null(monkeypatch, tmp_path):
+    class API:
+        def request(self, path, **kwargs):
+            assert path == 'releases/v1.2.3'
+            return {
+                'name':'v1.2.3',
+                'description':'Notes',
+                'commit':None,
+                'assets':{'links':[{
+                    'name':name,
+                    'url':f'https://github.com/{gitlab_release.REPOSITORY}/releases/download/v1.2.3/{name}',
+                    'link_type':'package',
+                } for name in gitlab_release.ASSETS]},
+                '_links':{'self':'https://gitlab.example/releases/v1.2.3'},
+            }
+
+    monkeypatch.setattr(gitlab_release, 'resolve_git_tag', lambda *args, **kwargs: SHA)
+    assert gitlab_release.publish(API(), '1.2.3', SHA, 'Notes', root=tmp_path) == 'https://gitlab.example/releases/v1.2.3'
 
 
 def test_public_release_verification_retries_only_transient_visibility(monkeypatch, tmp_path):
