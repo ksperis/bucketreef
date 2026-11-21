@@ -31,7 +31,7 @@ case "${1:?Validation name required}" in
   frontend-tests)
     cd frontend
     vitest_test_timeout_ms="${VITEST_TEST_TIMEOUT_MS:-20000}"
-    vitest_max_workers="${VITEST_MAX_WORKERS:-2}"
+    vitest_max_workers="${VITEST_MAX_WORKERS:-1}"
     if [ -n "${VITEST_SHARD:-}" ]; then
       npm run test:ci -- --testTimeout "$vitest_test_timeout_ms" --maxWorkers "$vitest_max_workers" --shard "$VITEST_SHARD"
     else
