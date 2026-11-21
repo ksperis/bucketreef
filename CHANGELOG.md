@@ -2,16 +2,33 @@
 
 ## Unreleased
 
+## 0.3.3 - 2026-11-21
+
 ### Added
 
+- Unified Admin resource and user access management across RGW Accounts, RGW Users, S3 Connections, OpenStack Clouds, UI Users, and UI Groups, including direct versus inherited access provenance and separate Manager and Portal rights.
+- Added RGW Account and RGW User Settings for service overrides and RGW limits, with Admin Ops capability checks, tenant-aware updates, rereads, and compensation on partial failures.
+- Added optional local descriptions for RGW Accounts and RGW Users, including create, edit, search, and inventory display.
 - Bound Admin UI User authentication-session history to active sessions by default, with on-demand revoked/expired history and automatic 30-day retention cleanup at startup and through the scheduler or Helm CronJob.
+
+### Changed
+
+- Integrated RGW User access-key management into the main edit workflow and consolidated association editing around shared User access and Resource access views.
+- Expanded French and German workspace localization and tightened Admin, Manager, Portal, Browser, and Storage Ops labels, filters, responsive controls, quota presentation, and status text.
 
 ### Fixed
 
 - Preserve the real RGW Account, RGW User, S3 Connection, and OpenStack Cloud names in Admin UI User associations without requiring the corresponding Add catalog to be loaded.
+- Refresh First Admin bootstrap tokens safely when a new one-time setup URL is opened in an already-mounted tab, clear stale token errors, and keep expected password/OIDC denials out of application console errors.
+- Restore Manager feature-state resolution and Admin account storage statistics when endpoint capabilities are enabled independently, and avoid requiring bootstrap Admin Ops credentials for read-only RGW User limit reads.
+- Guard Browser, Portal, Manager, and Admin-only deployments from issuing requests for unavailable runtime or endpoint capabilities while preserving Browser blob previews under the deployed CSP.
+- Build the scheduler's Supercronic binary with Go 1.26.11 to include the fix for CVE-2026-97054.
+- Repair static-demo Browser usage and cost subject details and several workspace-specific presentation regressions introduced during the access-management and localization work.
 
 ### Upgrade notes
 
+- Apply the normal Alembic upgrade path before starting the matching backend. Migration `0275_rgw_resource_descriptions` adds nullable local `description` columns to RGW Accounts and RGW Users; existing Ceph RGW resources are unchanged.
+- Deploy the matching backend and bundled frontend together for the unified Admin access-management, RGW Settings, RGW limits, and RGW resource-description contracts. These are coordinated application API changes within the bundled release and require no separate compatibility layer.
 - Deploy the matching backend and bundled frontend together because Admin UI User responses now include linked RGW Account details used to render association names. No database migration is required.
 - Deploy the matching backend and bundled frontend together for the new active-session filter and `Show revoked/expired` control. Revoked/expired authentication sessions are permanently deleted after `AUTH_SESSION_RETENTION_DAYS=30` by default, including during startup; set the value to `0` to disable deletion. Compose schedules the purge at `03:30 UTC` by default and Helm deployments can enable `authSessionRetentionCronJob`. No database migration is required.
 
